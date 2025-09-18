@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, UsePipes, ValidationPipe, Get } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, UsePipes, ValidationPipe, Get, Query } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { TrackEventDto } from './dto/track-event.dto';
 
@@ -23,5 +23,11 @@ export class EventsController {
       status: 'accepted',
       message: 'Event has been accepted and will be processed.',
     };
+  }
+
+  @Get('names')
+  async getEventNames(@Query('workspaceId') workspaceId: string): Promise<{ eventNames: string[] }> {
+    const eventNames = await this.eventsService.getUniqueEventNames(workspaceId);
+    return { eventNames };
   }
 }
