@@ -58,4 +58,24 @@ export class EventsService {
     // TODO: In the future, publish to Pub/Sub for async processing
     // For Phase 1 MVP, we store directly to PostgreSQL
   }
+
+  async getUniqueEventNames(workspaceId: string): Promise<string[]> {
+    // Get unique event names from all events in the workspace
+    const events = await this.prisma.event.findMany({
+      where: {
+        user: {
+          workspaceId: workspaceId,
+        },
+      },
+      select: {
+        name: true,
+      },
+      distinct: ['name'],
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    return events.map(event => event.name);
+  }
 }

@@ -24,4 +24,10 @@ export class EventsController {
       message: 'Event has been accepted and will be processed.',
     };
   }
+
+  @Get('names')
+  async getEventNames(@Query('workspaceId') workspaceId: string): Promise<{ eventNames: string[] }> {
+    const eventNames = await this.eventsService.getUniqueEventNames(workspaceId);
+    return { eventNames };
+  }
 }
