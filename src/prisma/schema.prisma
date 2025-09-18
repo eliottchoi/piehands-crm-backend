@@ -1,0 +1,184 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("DATABASE_URL")
+}
+
+model Workspace {
+  id          String             @id @default(uuid())
+  name        String             @db.VarChar(100)
+  createdAt   DateTime           @default(now()) @map("created_at")
+  campaigns   Campaign[]
+  teamMembers TeamMember[]
+  templates   Template[]
+  users       User[]
+  settings    WorkspaceSetting[] // 🎯 워크스페이스 설정
+
+  @@map("workspaces")
+}
+
+model WorkspaceSetting {
+  id          String    @id @default(uuid())
+  workspaceId String    @map("workspace_id")
+  category    String    @db.VarChar(50)  // 'sendgrid', 'slack', 'mixpanel'
+  key         String    @db.VarChar(100) // 'api_key', 'from_email', 'webhook_url'
+  value       String    @db.Text         // 실제 값 (암호화 저장 권장)
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, category, key])
+  @@index([workspaceId, category])
+  @@map("workspace_settings")
+}
+
+model TeamMember {
+  workspaceId String    @map("workspace_id")
+  userId      String    @map("user_id") @db.VarChar(255)
+  role        Role
+  createdAt   DateTime  @default(now()) @map("created_at")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@id([workspaceId, userId])
+  @@map("team_members")
+}
+
+model User {
+  id          String      @id @default(uuid())
+  workspaceId String      @map("workspace_id")
+  distinctId  String?     @map("distinct_id") @db.VarChar(255)
+  properties  Json?
+  emailStatus EmailStatus @default(active) @map("email_status")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id])
+  events      Event[]     // 🎯 이벤트 관계
+  emailLogs   EmailLog[]  // 🎯 이메일 발송 히스토리
+
+  @@unique([workspaceId, distinctId])
+  @@map("users")
+}
+
+model Event {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  name       String
+  timestamp  DateTime @default(now())
+  properties Json?
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("events")
+}
+
+model EmailLog {
+  id                 String    @id @default(uuid())
+  
+  // 🎯 관계 정보 (우리 시스템)
+  userId             String    @map("user_id")
+  campaignId         String?   @map("campaign_id")
+  templateId         String?   @map("template_id")
+  
+  // 🎯 SendGrid 정보
+  sendgridMessageId  String?   @unique @map("sendgrid_message_id")
+  toEmail            String    @map("to_email") @db.VarChar(255)
+  fromEmail          String?   @map("from_email") @db.VarChar(255)
+  subject            String?   @db.VarChar(500)
+  contentPreview     String?   @map("content_preview") @db.Text
+  
+  // 🎯 상태 추적 (SendGrid 웹훅으로 업데이트)
+  status             String    @default("queued") @db.VarChar(20)
+  sentAt             DateTime? @map("sent_at")
+  deliveredAt        DateTime? @map("delivered_at")
+  openedAt           DateTime? @map("opened_at")
+  firstClickAt       DateTime? @map("first_click_at")
+  bouncedAt          DateTime? @map("bounced_at")
+  unsubscribedAt     DateTime? @map("unsubscribed_at")
+  
+  // 🎯 세부 정보
+  bounceReason       String?   @map("bounce_reason") @db.Text
+  unsubscribeReason  String?   @map("unsubscribe_reason") @db.Text
+  errorMessage       String?   @map("error_message") @db.Text
+  
+  // 🎯 분석 데이터
+  openCount          Int       @default(0) @map("open_count")
+  clickCount         Int       @default(0) @map("click_count")
+  userAgent          String?   @map("user_agent") @db.Text
+  ipAddress          String?   @map("ip_address") @db.VarChar(45)
+  geoLocation        Json?     @map("geo_location")
+  
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  
+  // Relations
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaign           Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  template           Template? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([campaignId])
+  @@index([status])
+  @@index([sentAt])
+  @@map("email_logs")
+}
+
+model Campaign {
+  id               String    @id @default(uuid())
+  workspaceId      String    @map("workspace_id")
+  name             String    @db.VarChar(100)
+  description      String?   @db.Text
+  status           String    @default("DRAFT") @db.VarChar(20)
+  priority         String    @default("DEFAULT") @db.VarChar(20)
+  canvasDefinition Json?     @map("canvas_definition")
+  createdBy        String    @map("created_by") @db.VarChar(255)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  workspace        Workspace @relation(fields: [workspaceId], references: [id])
+  emailLogs        EmailLog[] // 🎯 이 캠페인의 모든 이메일 발송 기록
+
+  @@map("campaigns")
+}
+
+model Template {
+  id          String              @id @default(uuid())
+  workspaceId String              @map("workspace_id")
+  name        String              @db.VarChar(100)
+  type        TemplateType
+  contentType TemplateContentType @default(HTML) @map("content_type")
+  content     Json
+  createdBy   String              @map("created_by") @db.VarChar(255)
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+  workspace   Workspace           @relation(fields: [workspaceId], references: [id])
+  emailLogs   EmailLog[]          // 🎯 이 템플릿으로 발송된 모든 이메일 기록
+
+  @@map("templates")
+}
+
+enum Role {
+  admin
+  editor
+  viewer
+}
+
+enum EmailStatus {
+  active
+  unsubscribed
+  bounced
+}
+
+enum TemplateType {
+  EMAIL
+  SMS
+}
+
+enum TemplateContentType {
+  PLAIN
+  MARKDOWN
+  HTML
+}
