@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, UsePipes, ValidationPipe, Get } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, UsePipes, ValidationPipe, Get, Query } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { TrackEventDto } from './dto/track-event.dto';
 
