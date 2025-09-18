@@ -13,15 +13,53 @@ export class UsersService {
     private prisma: PrismaService,
   ) {}
 
-  async findAll(workspaceId: string, limit: number, cursor?: string) {
+  async findAll(workspaceId: string, limit: number, cursor?: string, search?: string) {
+    // Build search conditions
+    const whereCondition: any = { workspaceId };
+    
+    if (search?.trim()) {
+      const searchTerm = search.trim().toLowerCase();
+      whereCondition.OR = [
+        // Search in distinctId
+        {
+          distinctId: {
+            contains: searchTerm,
+            mode: 'insensitive'
+          }
+        },
+        // Search in properties.name (JSONB search)
+        {
+          properties: {
+            path: ['name'],
+            string_contains: searchTerm
+          }
+        },
+        // Search in properties.email (JSONB search)
+        {
+          properties: {
+            path: ['email'],
+            string_contains: searchTerm
+          }
+        }
+      ];
+    }
+
     const users = await this.prisma.user.findMany({
-      where: { workspaceId },
+      where: whereCondition,
       take: limit,
       skip: cursor ? 1 : 0,
       cursor: cursor ? { id: cursor } : undefined,
       orderBy: {
         createdAt: 'asc', // Or any other deterministic order
       },
+      include: {
+        events: {
+          take: 5, // Include some recent events for filtering
+          orderBy: {
+            timestamp: 'desc'
+          }
+        }
+      }
     });
 
     const nextCursor = users.length === limit ? users[users.length - 1].id : null;
@@ -29,7 +67,14 @@ export class UsersService {
     return {
       users,
       nextCursor,
+      totalCount: search ? undefined : await this.getTotalUserCount(workspaceId), // Only count when not searching
     };
+  }
+  
+  private async getTotalUserCount(workspaceId: string): Promise<number> {
+    return this.prisma.user.count({
+      where: { workspaceId }
+    });
   }
 
   async upsert(createUserDto: CreateUserDto) {

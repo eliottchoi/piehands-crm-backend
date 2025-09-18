@@ -39,10 +39,11 @@ export class UsersController {
     @Query('workspaceId') workspaceId: string,
     @Query('limit', new DefaultValuePipe(20), new ParseIntPipe({ errorHttpStatusCode: 400 })) limit: number,
     @Query('cursor') cursor?: string,
+    @Query('search') search?: string,
   ) {
     // Clamp the limit to a max of 100
     const take = Math.min(limit, 100);
-    return this.usersService.findAll(workspaceId, take, cursor);
+    return this.usersService.findAll(workspaceId, take, cursor, search);
   }
 
   // 🎯 IMPORTANT: This endpoint must be BEFORE @Get(':id') to avoid routing conflicts
