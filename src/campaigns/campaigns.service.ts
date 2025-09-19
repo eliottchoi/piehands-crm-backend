@@ -3,22 +3,20 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SendCampaignDto, TargetUserGroup } from './dto/send-campaign.dto';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
-import { Campaign, User } from '@prisma/client';
-// TODO: SendGrid 연동 후 활성화
-// import { SendGridService } from '../sendgrid/sendgrid.service';
-// import { TemplatesService } from '../templates/templates.service';
-// import { Template } from '@prisma/client';
-// import { Liquid } from 'liquidjs';
+import { Campaign, User, Template } from '@prisma/client';
+import { TemplatesService } from '../templates/templates.service';
+import { SendGridService } from '../sendgrid/sendgrid.service';
+import { Liquid } from 'liquidjs';
 
 @Injectable()
 export class CampaignsService {
   private readonly logger = new Logger(CampaignsService.name);
+  private readonly liquidEngine = new Liquid();
 
   constructor(
     private prisma: PrismaService,
-    // TODO: SendGrid와 Templates 의존성은 나중에 추가
-    // private sendGridService: SendGridService,
-    // private templatesService: TemplatesService,
+    private sendGridService: SendGridService,
+    private templatesService: TemplatesService,
   ) {}
 
   findAll(workspaceId: string) {
@@ -134,20 +132,21 @@ export class CampaignsService {
 
     this.logger.log(`🚀 Starting manual campaign send: ${usersToProcess.length} users`);
     
-    // 🎯 임시: SendGrid 연동 전까지는 시뮬레이션
-    this.logger.log(`📧 Simulating email send to ${usersToProcess.length} users`);
-    console.log(`[SIMULATION] Would send template ${templateId} to users:`, 
-      usersToProcess.map(u => ({ id: u.id, email: (u.properties as any)?.email }))
-    );
-
-    return {
-      message: `Campaign sending started for ${usersToProcess.length} users. Check email logs for progress.`,
-      count: usersToProcess.length,
-    };
+    // 🎯 실제 SendGrid 발송 활성화!
+    try {
+      await this.processBulkEmailSend(template, usersToProcess, null);
+      
+      return {
+        message: `Campaign sending completed for ${usersToProcess.length} users. Check email logs for results.`,
+        count: usersToProcess.length,
+      };
+    } catch (error) {
+      this.logger.error(`❌ Campaign sending failed: ${error.message}`);
+      throw new Error(`Campaign sending failed: ${error.message}`);
+    }
   }
 
-  // TODO: SendGrid 연동 후 활성화할 메서드들
-  /*
+  // 🎯 SendGrid 연동 활성화! (Mission-Critical Email Sending)
   // 🎯 대량 이메일 발송 처리 (1만 크리에이터 대응)
   private async processBulkEmailSend(template: Template, users: User[], campaignId: string | null = null) {
     this.logger.log(`📧 Processing bulk email send for ${users.length} users`);
@@ -234,5 +233,4 @@ export class CampaignsService {
       ),
     };
   }
-  */
 }
