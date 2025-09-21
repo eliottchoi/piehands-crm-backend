@@ -15,7 +15,7 @@ async function bootstrap() {
   app.use(express.json());
 
   app.enableCors({
-    origin: 'http://localhost:5173', // Allow frontend origin
+    origin: ['http://localhost:5173', 'https://piehands-crm.web.app', 'https://piehands-crm.firebaseapp.com', 'https://piehands-crm-app.web.app'], // Allow frontend origins
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
@@ -24,6 +24,7 @@ async function bootstrap() {
     whitelist: true, // DTO에 정의되지 않은 속성은 자동으로 제거
     transform: true, // 들어오는 데이터를 DTO 타입으로 변환
   }));
-  await app.listen(3000);
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
 }
 bootstrap();

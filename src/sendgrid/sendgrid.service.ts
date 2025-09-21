@@ -44,9 +44,14 @@ export class SendGridService {
       // 🎯 워크스페이스 SendGrid 설정 조회
       const sendGridSettings = await this.settingsService.getSendGridSettings(params.workspaceId);
       
-      const apiKey = sendGridSettings.api_key || process.env.SENDGRID_API_KEY;
-      const fromEmail = sendGridSettings.from_email || process.env.SENDGRID_FROM_EMAIL || 'noreply@piehands.com';
-      const fromName = sendGridSettings.from_name || process.env.SENDGRID_FROM_NAME || 'Piehands Team';
+      // 🎯 환경변수 우선 사용 (안정성을 위해)
+      const apiKey = process.env.SENDGRID_API_KEY || sendGridSettings.api_key;
+      const fromEmail = process.env.SENDGRID_FROM_EMAIL || sendGridSettings.from_email || 'dxt@buffamin.com';
+      const fromName = process.env.SENDGRID_FROM_NAME || sendGridSettings.from_name || 'Piehands Team';
+
+      // 🎯 디버깅: 설정 정보 로깅
+      this.logger.log(`SendGrid Settings - API Key: ${apiKey ? 'SET' : 'MISSING'}, From: ${fromEmail}, Name: ${fromName}`);
+      this.logger.log(`Settings Cache: ${JSON.stringify(sendGridSettings)}`);
 
       if (!apiKey) {
         throw new BadRequestException('SendGrid API key not configured. Please configure in Settings > Integrations.');
@@ -90,11 +95,14 @@ export class SendGridService {
           }
         },
         
-        // 🎯 Deliverability 최적화
+        // 🎯 Deliverability 최적화 (spam check 비활성화 - post_to_url 필수 때문에)
         mailSettings: {
-          spamCheck: { enable: true, threshold: 1 }
+          spamCheck: { enable: false }
         }
       };
+
+      // 🎯 디버깅: 메시지 구조 로깅
+      this.logger.log(`Sending email with message: ${JSON.stringify(msg, null, 2)}`);
 
       // SendGrid 발송
       const response = await sgMail.send(msg);
@@ -107,8 +115,8 @@ export class SendGridService {
         success: true
       };
 
-      // 🎯 이메일 로그 기록 (TODO: EmailLog 테이블 생성 후 활성화)
-      // await this.logEmailSend(params, result);
+      // 🎯 이메일 로그 기록 (완전한 추적)
+      await this.logEmailSend(params, result);
       
       // 🎯 User Event 기록 (CRM 히스토리)
       await this.createUserEmailEvent(params, 'email_sent', {
@@ -132,18 +140,22 @@ export class SendGridService {
         error: error.message
       };
 
-      // 실패도 로깅 (TODO: EmailLog 테이블 생성 후 활성화)
-      // await this.logEmailSend(params, result);
+      // 실패도 로깅
+      await this.logEmailSend(params, result);
       
       const duration = Date.now() - startTime;
+
+      // 🎯 SendGrid 상세 에러 정보 로깅
       this.logger.error(`Email send failed to ${params.to} in ${duration}ms: ${error.message}`);
-      
+      if (error.response && error.response.body) {
+        this.logger.error(`SendGrid API Error Details: ${JSON.stringify(error.response.body)}`);
+      }
+
       throw error;
     }
   }
 
-  // 🎯 이메일 로그 기록 (완전한 추적) - TODO: EmailLog 테이블 생성 후 활성화
-  /*
+  // 🎯 이메일 로그 기록 (완전한 추적)
   private async logEmailSend(params: SendEmailParams, result: SendResult) {
     try {
       await this.prisma.emailLog.create({
@@ -163,7 +175,6 @@ export class SendGridService {
       this.logger.error(`Failed to log email send: ${error.message}`);
     }
   }
-  */
 
   // 🎯 User Event 기록 (CRM 히스토리)
   private async createUserEmailEvent(params: SendEmailParams, eventName: string, eventProperties: any) {

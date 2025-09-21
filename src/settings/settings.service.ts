@@ -1,12 +1,31 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateSettingsDto, TestConnectionDto } from './dto/settings.dto';
+import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 
 @Injectable()
 export class SettingsService {
   private readonly logger = new Logger(SettingsService.name);
+  private readonly secretClient = new SecretManagerServiceClient();
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) {
+    this.initializeDefaultSettings();
+  }
+
+  // 🎯 기본 설정 초기화
+  private initializeDefaultSettings() {
+    // ws_piehands 워크스페이스에 기본 SendGrid 설정 추가
+    const defaultSendGridSettings = {
+      api_key: process.env.SENDGRID_API_KEY || '',
+      from_email: process.env.SENDGRID_FROM_EMAIL || 'dxt@buffamin.com',
+      from_name: process.env.SENDGRID_FROM_NAME || 'Piehands Team',
+      tracking_enabled: true,
+      unsubscribe_enabled: true,
+    };
+
+    this.settingsCache.set('ws_piehands:sendgrid', defaultSendGridSettings);
+    this.logger.log('✅ Default SendGrid settings initialized for ws_piehands');
+  }
 
   // 🎯 워크스페이스 설정 조회 (메모리 캐시에서)
   async getWorkspaceSettings(workspaceId: string) {
@@ -24,7 +43,7 @@ export class SettingsService {
     };
   }
 
-  // 🎯 설정 업데이트 (임시 메모리 저장)
+  // 🎯 설정 업데이트 (메모리 + Secret Manager)
   private settingsCache = new Map<string, Record<string, any>>();
 
   async updateSettings(dto: UpdateSettingsDto) {
@@ -32,16 +51,105 @@ export class SettingsService {
 
     this.logger.log(`Updating ${category} settings for workspace ${workspaceId}`);
 
-    // 💾 임시로 메모리에 저장 (실제 DB 연동 전까지)
+    // 💾 메모리에 저장
     const cacheKey = `${workspaceId}:${category}`;
     this.settingsCache.set(cacheKey, settings);
 
-    this.logger.log(`Successfully cached ${Object.keys(settings).length} ${category} settings`);
+    // 🔐 Secret Manager에 저장 (SendGrid 설정인 경우)
+    if (category === 'sendgrid') {
+      await this.saveToSecretManager(workspaceId, settings);
+    }
+
+    this.logger.log(`Successfully saved ${Object.keys(settings).length} ${category} settings`);
 
     return { 
-      message: `${category} settings saved successfully (cache mode)`,
+      message: `${category} settings saved successfully`,
       count: Object.keys(settings).length 
     };
+  }
+
+  // 🔐 Secret Manager에 설정 저장
+  private async saveToSecretManager(workspaceId: string, settings: Record<string, any>) {
+    try {
+      const projectId = process.env.GOOGLE_CLOUD_PROJECT || 'piehands-agents';
+      
+      // SendGrid API Key 저장
+      if (settings.api_key) {
+        await this.createOrUpdateSecret(
+          `${projectId}`,
+          `crm-${workspaceId}-sendgrid-api-key`,
+          settings.api_key
+        );
+      }
+
+      // SendGrid From Email 저장
+      if (settings.from_email) {
+        await this.createOrUpdateSecret(
+          `${projectId}`,
+          `crm-${workspaceId}-sendgrid-from-email`,
+          settings.from_email
+        );
+      }
+
+      // SendGrid From Name 저장
+      if (settings.from_name) {
+        await this.createOrUpdateSecret(
+          `${projectId}`,
+          `crm-${workspaceId}-sendgrid-from-name`,
+          settings.from_name
+        );
+      }
+
+      this.logger.log(`✅ SendGrid settings saved to Secret Manager for workspace ${workspaceId}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to save to Secret Manager: ${error.message}`);
+      // Secret Manager 실패해도 메모리 저장은 유지
+    }
+  }
+
+  // 🔐 Secret 생성 또는 업데이트
+  private async createOrUpdateSecret(projectId: string, secretId: string, secretValue: string) {
+    const secretName = `projects/${projectId}/secrets/${secretId}`;
+    
+    try {
+      // 시크릿 존재 확인
+      await this.secretClient.getSecret({ name: secretName });
+      
+      // 기존 시크릿에 새 버전 추가
+      await this.secretClient.addSecretVersion({
+        parent: secretName,
+        payload: {
+          data: Buffer.from(secretValue, 'utf8'),
+        },
+      });
+      
+      this.logger.log(`Updated secret: ${secretId}`);
+    } catch (error) {
+      if (error.code === 5) { // NOT_FOUND
+        // 시크릿이 없으면 생성
+        await this.secretClient.createSecret({
+          parent: `projects/${projectId}`,
+          secretId,
+          secret: {
+            replication: {
+              automatic: {},
+            },
+          },
+        });
+        
+        // 첫 번째 버전 추가
+        await this.secretClient.addSecretVersion({
+          parent: secretName,
+          payload: {
+            data: Buffer.from(secretValue, 'utf8'),
+          },
+        });
+        
+        this.logger.log(`Created secret: ${secretId}`);
+      } else {
+        throw error;
+      }
+    }
   }
 
   // 🎯 연동 테스트

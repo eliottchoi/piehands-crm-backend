@@ -63,12 +63,12 @@ export class SendGridWebhookService {
   // 🎯 이메일 전달 완료 처리
   private async handleDeliveredEvent(event: SendGridEvent, user: any) {
     await Promise.all([
-      // Email Log 업데이트 (TODO: EmailLog 테이블 생성 후 활성화)
-      // this.updateEmailLog(event.sg_message_id, {
-      //   status: 'delivered',
-      //   deliveredAt: new Date(event.timestamp * 1000),
-      // }),
-      
+      // Email Log 업데이트
+      this.updateEmailLog(event.sg_message_id, {
+        status: 'delivered',
+        deliveredAt: new Date(event.timestamp * 1000),
+      }),
+
       // User Event 추가 (CRM 히스토리)
       this.createUserEvent(user.id, 'email_delivered', {
         messageId: event.sg_message_id,
@@ -81,17 +81,14 @@ export class SendGridWebhookService {
   // 🎯 이메일 오픈 처리
   private async handleOpenedEvent(event: SendGridEvent, user: any) {
     await Promise.all([
-      // Email Log 업데이트 (TODO: EmailLog 테이블 생성 후 활성화)
-      // this.prisma.emailLog.updateMany({
-      //   where: { sendgridMessageId: event.sg_message_id },
-      //   data: {
-      //     openedAt: { set: new Date(event.timestamp * 1000) },
-      //     openCount: { increment: 1 },
-      //     userAgent: event.useragent,
-      //     ipAddress: event.ip,
-      //   }
-      // }),
-      
+      // Email Log 업데이트
+      this.updateEmailLog(event.sg_message_id, {
+        status: 'opened',
+        openedAt: new Date(event.timestamp * 1000),
+        userAgent: event.useragent,
+        ipAddress: event.ip,
+      }),
+
       // User Event 추가
       this.createUserEvent(user.id, 'email_opened', {
         messageId: event.sg_message_id,
@@ -105,17 +102,15 @@ export class SendGridWebhookService {
   // 🎯 이메일 클릭 처리
   private async handleClickedEvent(event: SendGridEvent, user: any) {
     await Promise.all([
-      // Email Log 업데이트 (TODO: EmailLog 테이블 생성 후 활성화)
-      // this.prisma.emailLog.updateMany({
-      //   where: { sendgridMessageId: event.sg_message_id },
-      //   data: {
-      //     firstClickAt: new Date(event.timestamp * 1000),
-      //     clickCount: { increment: 1 },
-      //     userAgent: event.useragent,
-      //     ipAddress: event.ip,
-      //   }
-      // }),
-      
+      // Email Log 업데이트
+      this.updateEmailLog(event.sg_message_id, {
+        status: 'clicked',
+        clickedAt: new Date(event.timestamp * 1000),
+        clickedUrl: event.url,
+        userAgent: event.useragent,
+        ipAddress: event.ip,
+      }),
+
       // User Event 추가
       this.createUserEvent(user.id, 'email_clicked', {
         messageId: event.sg_message_id,
@@ -130,19 +125,20 @@ export class SendGridWebhookService {
   // 🎯 이메일 반송 처리 (deliverability 핵심)
   private async handleBounceEvent(event: SendGridEvent, user: any) {
     await Promise.all([
-      // Email Log 업데이트 (TODO: EmailLog 테이블 생성 후 활성화)
-      // this.updateEmailLog(event.sg_message_id, {
-      //   status: 'bounced',
-      //   bouncedAt: new Date(event.timestamp * 1000),
-      //   bounceReason: event.reason,
-      // }),
-      
+      // Email Log 업데이트
+      this.updateEmailLog(event.sg_message_id, {
+        status: 'bounced',
+        bouncedAt: new Date(event.timestamp * 1000),
+        bounceReason: event.reason,
+        bounceType: event.type,
+      }),
+
       // User email_status 업데이트 (중요!)
       this.prisma.user.update({
         where: { id: user.id },
         data: { emailStatus: 'bounced' }
       }),
-      
+
       // User Event 추가
       this.createUserEvent(user.id, 'email_bounced', {
         messageId: event.sg_message_id,
@@ -158,18 +154,18 @@ export class SendGridWebhookService {
   // 🎯 수신 거부 처리 (법적 준수 핵심)
   private async handleUnsubscribeEvent(event: SendGridEvent, user: any) {
     await Promise.all([
-      // Email Log 업데이트 (TODO: EmailLog 테이블 생성 후 활성화)
-      // this.updateEmailLog(event.sg_message_id, {
-      //   status: 'unsubscribed',
-      //   unsubscribedAt: new Date(event.timestamp * 1000),
-      // }),
-      
+      // Email Log 업데이트
+      this.updateEmailLog(event.sg_message_id, {
+        status: 'unsubscribed',
+        unsubscribedAt: new Date(event.timestamp * 1000),
+      }),
+
       // User email_status 업데이트 (중요!)
       this.prisma.user.update({
         where: { id: user.id },
         data: { emailStatus: 'unsubscribed' }
       }),
-      
+
       // User Event 추가
       this.createUserEvent(user.id, 'email_unsubscribed', {
         messageId: event.sg_message_id,
@@ -213,11 +209,10 @@ export class SendGridWebhookService {
     });
   }
 
-  // 🎯 Helper: Email Log 업데이트 (TODO: EmailLog 테이블 생성 후 활성화)
-  /*
+  // 🎯 Helper: Email Log 업데이트
   private async updateEmailLog(messageId: string, updateData: any) {
     if (!messageId) return;
-    
+
     try {
       return await this.prisma.emailLog.updateMany({
         where: { sendgridMessageId: messageId },
@@ -227,7 +222,6 @@ export class SendGridWebhookService {
       this.logger.error(`Failed to update email log for ${messageId}: ${error.message}`);
     }
   }
-  */
 
   // 🎯 Helper: User Event 생성 (CRM 히스토리)
   private async createUserEvent(userId: string, eventName: string, properties: any) {

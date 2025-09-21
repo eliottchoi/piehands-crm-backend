@@ -13,6 +13,7 @@ model Workspace {
   name        String             @db.VarChar(100)
   createdAt   DateTime           @default(now()) @map("created_at")
   campaigns   Campaign[]
+  campaignJobs CampaignJob[]      // 🎯 워크스페이스의 모든 발송 작업
   teamMembers TeamMember[]
   templates   Template[]
   users       User[]
@@ -140,8 +141,51 @@ model Campaign {
   updatedAt        DateTime  @updatedAt @map("updated_at")
   workspace        Workspace @relation(fields: [workspaceId], references: [id])
   emailLogs        EmailLog[] // 🎯 이 캠페인의 모든 이메일 발송 기록
+  campaignJobs     CampaignJob[] // 🎯 이 캠페인의 모든 발송 작업
 
   @@map("campaigns")
+}
+
+// 🎯 캠페인 발송 작업 (IP Warm-up, 재시작 지원)
+model CampaignJob {
+  id                 String    @id @default(uuid())
+  workspaceId        String    @map("workspace_id")
+  campaignId         String    @map("campaign_id")
+  templateId         String    @map("template_id")
+
+  // 🎯 작업 상태
+  status             String    @default("pending") @db.VarChar(20) // pending, running, paused, completed, failed, cancelled
+  totalUsers         Int       @default(0) @map("total_users")
+  processedUsers     Int       @default(0) @map("processed_users")
+  successCount       Int       @default(0) @map("success_count")
+  failureCount       Int       @default(0) @map("failure_count")
+  currentBatch       Int       @default(0) @map("current_batch")
+
+  // 🎯 시간 추적
+  startedAt          DateTime? @map("started_at")
+  lastProcessedAt    DateTime? @map("last_processed_at")
+  estimatedCompletion DateTime? @map("estimated_completion")
+
+  // 🎯 IP Warm-up
+  warmupDay          Int?      @map("warmup_day")
+  dailyLimitReached  Boolean   @default(false) @map("daily_limit_reached")
+
+  // 🎯 설정 (JSON으로 유연하게 저장)
+  config             Json      @default("{}")
+
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  workspace          Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaign           Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  template           Template  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([campaignId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("campaign_jobs")
 }
 
 model Template {
@@ -156,6 +200,7 @@ model Template {
   updatedAt   DateTime            @updatedAt @map("updated_at")
   workspace   Workspace           @relation(fields: [workspaceId], references: [id])
   emailLogs   EmailLog[]          // 🎯 이 템플릿으로 발송된 모든 이메일 기록
+  campaignJobs CampaignJob[]       // 🎯 이 템플릿을 사용하는 발송 작업
 
   @@map("templates")
 }

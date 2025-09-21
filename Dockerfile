@@ -10,8 +10,8 @@ RUN apt-get update && apt-get install -y openssl python3 make g++
 COPY package*.json ./
 COPY src/prisma ./src/prisma/
 
-# Install dependencies
-RUN npm ci --only=production --omit=dev
+# Install all dependencies (including dev for build)
+RUN npm ci
 
 # Copy source code
 COPY . .
@@ -19,6 +19,9 @@ COPY . .
 # Generate Prisma client and build
 RUN npm run install:prisma-manual
 RUN npm run build
+
+# Remove dev dependencies after build
+RUN npm prune --production
 
 # Production stage
 FROM node:20-slim AS production
@@ -45,9 +48,7 @@ ENV PORT=8080
 
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8080/health || exit 1
+# Health check removed - Cloud Run handles this
 
 # Start command
-CMD ["node", "dist/main"]
+CMD ["node", "dist/src/main"]

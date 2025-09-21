@@ -12,17 +12,11 @@ export class SettingsController {
     return this.settingsService.getWorkspaceSettings(workspaceId);
   }
 
-  // 🎯 설정 업데이트 (임시 구현)
+  // 🎯 설정 업데이트
   @Post()
-  async updateSettings(@Body() body: any) {
-    console.log('🎯 Received settings update:', body);
-    
-    // 임시로 성공 응답만 반환
-    return { 
-      message: `${body.category || 'unknown'} settings saved successfully (temp mode)`,
-      count: Object.keys(body.settings || {}).length,
-      received: body
-    };
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async updateSettings(@Body() updateSettingsDto: UpdateSettingsDto) {
+    return this.settingsService.updateSettings(updateSettingsDto);
   }
 
   // 🎯 연동 테스트 (SendGrid API Key 검증 등)

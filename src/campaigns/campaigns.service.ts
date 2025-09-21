@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SendCampaignDto, TargetUserGroup } from './dto/send-campaign.dto';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
@@ -7,6 +7,7 @@ import { Campaign, User, Template } from '@prisma/client';
 import { TemplatesService } from '../templates/templates.service';
 import { SendGridService } from '../sendgrid/sendgrid.service';
 import { Liquid } from 'liquidjs';
+import { CampaignJobService } from './campaign-job.service';
 
 @Injectable()
 export class CampaignsService {
@@ -17,7 +18,67 @@ export class CampaignsService {
     private prisma: PrismaService,
     private sendGridService: SendGridService,
     private templatesService: TemplatesService,
+    @Inject(forwardRef(() => CampaignJobService))
+    private campaignJobService: CampaignJobService,
   ) {}
+
+  // 🎯 이메일 노드의 타겟 설정에 따라 사용자 목록 조회
+  private async getTargetUsers(workspaceId: string, targetConfig: any): Promise<User[]> {
+    if (!targetConfig || !targetConfig.type) {
+      // 기본값: 모든 활성 사용자
+      return this.prisma.user.findMany({
+        where: {
+          workspaceId,
+          emailStatus: 'active',
+        },
+      });
+    }
+
+    switch (targetConfig.type) {
+      case 'ALL_USERS':
+        return this.prisma.user.findMany({
+          where: {
+            workspaceId,
+            emailStatus: 'active',
+          },
+        });
+
+      case 'SPECIFIC_USERS':
+        if (!targetConfig.userIds || !Array.isArray(targetConfig.userIds)) {
+          this.logger.warn('SPECIFIC_USERS target config missing userIds array');
+          return [];
+        }
+        return this.prisma.user.findMany({
+          where: {
+            workspaceId,
+            id: { in: targetConfig.userIds },
+            emailStatus: 'active',
+          },
+        });
+
+      case 'BY_FILTER':
+        // 향후 확장: 동적 필터링 로직
+        if (targetConfig.filter) {
+          // TODO: 복잡한 필터링 로직 구현 (category, follower_count 등)
+          this.logger.log('BY_FILTER targeting not yet implemented, falling back to ALL_USERS');
+        }
+        return this.prisma.user.findMany({
+          where: {
+            workspaceId,
+            emailStatus: 'active',
+          },
+        });
+
+      default:
+        this.logger.warn(`Unknown target type: ${targetConfig.type}, falling back to ALL_USERS`);
+        return this.prisma.user.findMany({
+          where: {
+            workspaceId,
+            emailStatus: 'active',
+          },
+        });
+    }
+  }
 
   findAll(workspaceId: string) {
     return this.prisma.campaign.findMany({
@@ -54,6 +115,33 @@ export class CampaignsService {
     return campaign;
   }
 
+  async getCampaignStatus(id: string) {
+    const campaign = await this.prisma.campaign.findUnique({ where: { id } });
+    if (!campaign) {
+      throw new NotFoundException(`Campaign with ID ${id} not found.`);
+    }
+
+    // This is a simplified version. For large campaigns, we need a better way to get total users.
+    // For now, let's assume we can query the users again or we stored the count somewhere.
+    const emailSendNode = (campaign.canvasDefinition as any)?.nodes?.find(node => node.type === 'EMAIL_SEND');
+    const totalUsers = await this.getTargetUsers(campaign.workspaceId, emailSendNode?.data?.targetConfig);
+    const totalUserCount = totalUsers.length;
+
+    const processedCount = await this.prisma.emailLog.count({
+      where: { campaignId: id },
+    });
+
+    const progress = totalUserCount > 0 ? (processedCount / totalUserCount) * 100 : 0;
+
+    return {
+      campaignId: id,
+      status: campaign.status,
+      totalUsers: totalUserCount,
+      processedUsers: processedCount,
+      progress: progress.toFixed(2),
+    };
+  }
+
   async activate(id: string): Promise<Campaign> {
     const campaign = await this.prisma.campaign.findUnique({ where: { id } });
     if (!campaign) {
@@ -68,38 +156,68 @@ export class CampaignsService {
 
     const canvasDef = updatedCampaign.canvasDefinition as any;
     const immediateTrigger = canvasDef?.nodes?.find(node => node.type === 'IMMEDIATE');
+    const emailSendNode = canvasDef?.nodes?.find(node => node.type === 'EMAIL_SEND');
 
-    if (immediateTrigger) {
-      // Find users based on the trigger's target audience
-      const users = await this.prisma.user.findMany({
-        where: {
-          workspaceId: campaign.workspaceId,
-          emailStatus: 'active',
-        },
-      });
-      // Start the campaign for these users in the background
-      this.triggerCampaignForUsers(updatedCampaign, users);
+    if (immediateTrigger && emailSendNode) {
+      // Find users based on EMAIL_SEND node's target configuration
+      const users = await this.getTargetUsers(campaign.workspaceId, emailSendNode.data?.targetConfig);
+
+      if (users.length > 0) {
+        // Start the campaign for these users in the background
+        this.triggerCampaignForUsers(updatedCampaign, users);
+      } else {
+        this.logger.warn(`No target users found for campaign ${id}`);
+      }
+    } else {
+      this.logger.warn(`Campaign ${id} missing IMMEDIATE trigger or EMAIL_SEND node`);
     }
-    
+
     return updatedCampaign;
   }
 
   async triggerCampaignForUsers(campaign: Campaign, users: User[]) {
-    // This is where we create enrollments and queue the first action
-    // For now, we will just log it. This logic will be expanded in later tasks.
-    console.log(`Triggering campaign ${campaign.id} for ${users.length} users.`);
-    
-    const enrollments = users.map(user => ({
-        userId: user.id,
+    this.logger.log(`Triggering campaign ${campaign.id} for ${users.length} users.`);
+
+    // 캔버스에서 EMAIL_SEND 노드와 템플릿 정보 추출
+    const canvasDef = campaign.canvasDefinition as any;
+    const emailSendNode = canvasDef?.nodes?.find((node: any) => node.type === 'EMAIL_SEND');
+
+    if (!emailSendNode || !emailSendNode.data?.templateId) {
+      this.logger.error(`Campaign ${campaign.id} missing EMAIL_SEND node or templateId`);
+      return;
+    }
+
+    // Cloud Tasks를 통한 이메일 발송 시작
+    try {
+      const jobConfig = {
         campaignId: campaign.id,
-        status: 'ACTIVE',
-        // TODO: Determine the first node from canvasDefinition
-        currentNodeId: (campaign.canvasDefinition as any)?.nodes?.[0]?.id || null,
-    }));
-    
-    // In a real scenario, this would be a more robust batch creation.
-    // This is a simplified version for now.
-    console.log('Creating enrollments:', enrollments);
+        workspaceId: campaign.workspaceId,
+        templateId: emailSendNode.data.templateId,
+        enableWarmup: true, // IP Warm-up 활성화
+        userFilter: { id: { in: users.map(u => u.id) } }, // 🎯 타겟 사용자만 필터링
+      };
+
+      const jobId = await this.campaignJobService.startCampaignJob(jobConfig);
+      this.logger.log(`Started campaign job ${jobId} for campaign ${campaign.id}`);
+
+      // 캠페인 상태를 SENDING으로 유지 (CampaignJobService가 관리)
+      await this.prisma.campaign.update({
+        where: { id: campaign.id },
+        data: {
+          status: 'SENDING',
+          updatedAt: new Date(),
+        },
+      });
+
+    } catch (error) {
+      this.logger.error(`Failed to start campaign job for ${campaign.id}: ${error.message}`);
+
+      // 실패 시 상태를 FAILED로 변경
+      await this.prisma.campaign.update({
+        where: { id: campaign.id },
+        data: { status: 'FAILED' },
+      });
+    }
   }
 
   async sendManualCampaign(workspaceId: string, sendCampaignDto: SendCampaignDto) {
@@ -164,12 +282,12 @@ export class CampaignsService {
       await Promise.all(
         batch.map(async (user) => {
           try {
-            await this.sendEmailToUser(user, template, campaignId);
+            await this.sendEmailWithRetry(user, template, campaignId);
             successCount++;
             this.logger.debug(`✅ Email sent to ${user.distinctId || user.id}`);
           } catch (error) {
             failureCount++;
-            this.logger.error(`❌ Failed to send email to ${user.distinctId || user.id}: ${error.message}`);
+            this.logger.error(`❌ 최종 실패: ${user.distinctId || user.id} - ${error.message}`);
           }
         })
       );
@@ -186,12 +304,31 @@ export class CampaignsService {
     this.logger.log(`🎉 Bulk send completed: ${successCount} success, ${failureCount} failed`);
   }
 
+  // 🎯 실패 시 재시도 로직 추가 (Exponential Backoff)
+  private async sendEmailWithRetry(user: User, template: Template, campaignId: string | null, maxRetries = 3) {
+    let attempt = 0;
+    while (attempt < maxRetries) {
+      try {
+        await this.sendEmailToUser(user, template, campaignId);
+        return; // 성공 시 함수 종료
+      } catch (error) {
+        attempt++;
+        if (attempt >= maxRetries) {
+          throw error; // 모든 재시도 실패 시 에러 발생
+        }
+        const delay = Math.pow(3, attempt - 1) * 1000; // 1초, 3초, 9초...
+        this.logger.warn(`Attempt ${attempt} failed for ${user.id}. Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
   // 🎯 개별 사용자에게 이메일 발송
   private async sendEmailToUser(user: User, template: Template, campaignId: string | null = null) {
     // 1. 이메일 주소 검증
     const userEmail = (user.properties as any)?.email;
-    if (!userEmail) {
-      throw new Error(`User ${user.id} has no email address`);
+    if (!userEmail || typeof userEmail !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) {
+      throw new Error(`User ${user.id} has an invalid email address: ${userEmail}`);
     }
 
     // 2. 템플릿 렌더링 (사용자 데이터와 조합)

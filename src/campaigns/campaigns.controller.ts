@@ -18,6 +18,11 @@ export class CampaignsController {
     return this.campaignsService.findOne(id);
   }
 
+  @Get(':id/status')
+  getCampaignStatus(@Param('id') id: string) {
+    return this.campaignsService.getCampaignStatus(id);
+  }
+
   @Post()
   create(@Body() createCampaignDto: CreateCampaignDto) {
     return this.campaignsService.create(createCampaignDto);
