@@ -5,6 +5,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { SettingsModule } from '../settings/settings.module';
 import { TasksModule } from '../tasks/tasks.module';
 import { AuthModule } from '../auth/auth.module';
+import { SendGridModule } from '../sendgrid/sendgrid.module';
 
 @Module({
   imports: [
