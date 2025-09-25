@@ -16,6 +16,7 @@ import {
   HttpCode,
   ParseIntPipe,
   DefaultValuePipe,
+  UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -23,8 +24,10 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import * as express from 'express';
 import { AddUserPropertyDto } from './dto/add-user-property.dto';
 import { IdentifyUserDto } from './dto/identify-user.dto';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('users')
+@UseGuards(AuthGuard('jwt'))
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -60,7 +63,7 @@ export class UsersController {
 
   @Get()
   findAll(
-    @Query('workspaceId') workspaceId: string,
+    @Req() req: any,
     @Query(
       'limit',
       new DefaultValuePipe(20),
@@ -70,6 +73,7 @@ export class UsersController {
     @Query('cursor') cursor?: string,
     @Query('search') search?: string,
   ) {
+    const workspaceId = req.user.workspaceId;
     // Clamp the limit to a max of 100
     const take = Math.min(limit, 100);
     return this.usersService.findAll(workspaceId, take, cursor, search);
@@ -77,13 +81,15 @@ export class UsersController {
 
   // 🎯 IMPORTANT: This endpoint must be BEFORE @Get(':id') to avoid routing conflicts
   @Get('properties')
-  async getUniqueProperties(@Query('workspaceId') workspaceId: string) {
+  async getUniqueProperties(@Req() req: any) {
+    const workspaceId = req.user.workspaceId;
     const properties = await this.usersService.getUniqueProperties(workspaceId);
     return { properties };
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string, @Query('workspaceId') workspaceId: string) {
+  findOne(@Req() req: any, @Param('id') id: string) {
+    const workspaceId = req.user.workspaceId;
     // For now, event pagination is not implemented in the controller
     return this.usersService.findOneById(workspaceId, id, 30, undefined);
   }
