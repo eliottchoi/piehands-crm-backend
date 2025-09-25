@@ -13,6 +13,10 @@ import { SendGridModule } from './sendgrid/sendgrid.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { SettingsModule } from './settings/settings.module';
 import { EventsModule } from './events/events.module';
+import { WorkspacesModule } from './workspaces/workspaces.module';
+import { AuthModule } from './auth/auth.module';
+import { APP_GUARD } from '@nestjs/core';
+import { AuthGuard } from '@nestjs/passport';
 
 @Module({
   imports: [
@@ -29,9 +33,15 @@ import { EventsModule } from './events/events.module';
     SettingsModule, // 🎯 워크스페이스 설정 관리
     SendGridModule, // 🎯 SendGrid 이메일 발송 (활성화!)
     WebhooksModule, // 🎯 SendGrid 웹훅 수신 (활성화!)
-    EventsModule, // 🎯 사용자 이벤트 수집 (활성화!)
+    EventsModule, WorkspacesModule, AuthModule, // 🎯 사용자 이벤트 수집 (활성화!)
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: AuthGuard('jwt'),
+    },
+  ],
 })
 export class AppModule {}
