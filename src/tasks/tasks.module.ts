@@ -12,7 +12,7 @@ import { CampaignsModule } from '../campaigns/campaigns.module';
   imports: [
     PrismaModule,
     SendGridModule,
-    TemplatesModule,
+    forwardRef(() => TemplatesModule),
     UsersModule,
   ],
   controllers: [TasksController],

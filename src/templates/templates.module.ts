@@ -5,6 +5,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { SettingsModule } from '../settings/settings.module';
 import { AuthModule } from '../auth/auth.module';
 import { SendGridModule } from '../sendgrid/sendgrid.module';
+import { TasksModule } from '../tasks/tasks.module';
 
 @Module({
   imports: [
@@ -12,9 +13,10 @@ import { SendGridModule } from '../sendgrid/sendgrid.module';
     PrismaModule,
     SendGridModule,
     SettingsModule,
+    forwardRef(() => TasksModule),
   ],
   controllers: [TemplatesController],
   providers: [TemplatesService],
-  exports: [TemplatesService], // 🎯 CampaignsService에서 사용하기 위해 export
+  exports: [TemplatesService],
 })
 export class TemplatesModule {}
