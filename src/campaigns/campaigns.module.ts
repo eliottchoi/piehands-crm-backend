@@ -17,7 +17,7 @@ import { AuthModule } from '../auth/auth.module';
     SendGridModule,
     TemplatesModule,
     SettingsModule,
-    forwardRef(() => TasksModule),
+    TasksModule,
   ],
   controllers: [CampaignsController, CampaignJobController],
   providers: [CampaignsService, CampaignJobService],

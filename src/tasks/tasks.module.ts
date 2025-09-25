@@ -14,7 +14,6 @@ import { CampaignsModule } from '../campaigns/campaigns.module';
     SendGridModule,
     TemplatesModule,
     UsersModule,
-    forwardRef(() => CampaignsModule),
   ],
   controllers: [TasksController],
   providers: [CloudTasksService, WarmupService],

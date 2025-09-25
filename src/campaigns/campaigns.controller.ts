@@ -8,16 +8,13 @@ import {
   Param,
   Get,
   Req,
-  UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { CampaignsService } from './campaigns.service';
 import { SendCampaignDto } from './dto/send-campaign.dto';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 
 @Controller('campaigns')
-@UseGuards(AuthGuard('jwt'))
 export class CampaignsController {
   constructor(private readonly campaignsService: CampaignsService) {}
 
