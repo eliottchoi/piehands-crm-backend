@@ -8,7 +8,9 @@ import {
   Param,
   Get,
   Req,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { CampaignsService } from './campaigns.service';
 import { SendCampaignDto } from './dto/send-campaign.dto';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
@@ -34,6 +36,7 @@ export class CampaignsController {
   }
 
   @Post()
+  @UseGuards(AuthGuard('jwt'))
   create(
     @Body() createCampaignDto: CreateCampaignDto,
     @Req() req: any,
