@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TrackEventDto } from './dto/track-event.dto';
 
@@ -15,22 +19,24 @@ export class EventsService {
       where: { id: workspaceId },
     });
     if (!workspace) {
-      throw new NotFoundException(`Workspace with ID "${workspaceId}" not found.`);
+      throw new NotFoundException(
+        `Workspace with ID "${workspaceId}" not found.`,
+      );
     }
 
     // 2. Find or validate user exists by distinct_id
     const user = await this.prisma.user.findUnique({
-      where: { 
-        workspaceId_distinctId: { 
-          workspaceId, 
-          distinctId: userId 
-        } 
+      where: {
+        workspaceId_distinctId: {
+          workspaceId,
+          distinctId: userId,
+        },
       },
     });
 
     if (!user) {
       throw new NotFoundException(
-        `User with distinct_id "${userId}" not found in workspace "${workspaceId}".`
+        `User with distinct_id "${userId}" not found in workspace "${workspaceId}".`,
       );
     }
 
@@ -39,7 +45,9 @@ export class EventsService {
     if (timestamp) {
       eventTimestamp = new Date(timestamp);
       if (isNaN(eventTimestamp.getTime())) {
-        throw new BadRequestException('Invalid timestamp format. Use ISO 8601 format.');
+        throw new BadRequestException(
+          'Invalid timestamp format. Use ISO 8601 format.',
+        );
       }
     } else {
       eventTimestamp = new Date();
@@ -76,6 +84,6 @@ export class EventsService {
       },
     });
 
-    return events.map(event => event.name);
+    return events.map((event) => event.name);
   }
 }

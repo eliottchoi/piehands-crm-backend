@@ -4,12 +4,16 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: [
       'build',
+      '-t', 'gcr.io/$PROJECT_ID/piehands-crm-backend:$COMMIT_SHA',
       '-t', 'gcr.io/$PROJECT_ID/piehands-crm-backend:latest',
-      '-f', 'backend/Dockerfile',
-      'backend/'
+      '.'
     ]
+    dir: 'backend'
 
   # Push Docker image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/piehands-crm-backend:$COMMIT_SHA']
+
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/$PROJECT_ID/piehands-crm-backend:latest']
 
@@ -18,7 +22,7 @@ steps:
     entrypoint: 'gcloud'
     args: [
       'run', 'deploy', 'piehands-crm-backend',
-      '--image', 'gcr.io/$PROJECT_ID/piehands-crm-backend:latest',
+      '--image', 'gcr.io/$PROJECT_ID/piehands-crm-backend:$COMMIT_SHA',
       '--region', 'us-central1',
       '--platform', 'managed',
       '--allow-unauthenticated',
@@ -27,12 +31,13 @@ steps:
       '--cpu', '2',
       '--max-instances', '10',
       '--set-env-vars', 'NODE_ENV=production,GOOGLE_CLOUD_PROJECT=$PROJECT_ID',
-      '--set-secrets', 'DATABASE_URL=crm-database-url:latest'
+      '--set-secrets', 'DATABASE_URL=CRM_DATABASE_URL:latest,SENDGRID_API_KEY=SENDGRID_API_KEY:latest,SENDGRID_FROM_EMAIL=SENDGRID_FROM_EMAIL:latest,SENDGRID_FROM_NAME=SENDGRID_FROM_NAME:latest,JWT_SECRET=JWT_SECRET:latest'
     ]
 
 # Store build artifacts
 artifacts:
   images:
+    - 'gcr.io/$PROJECT_ID/piehands-crm-backend:$COMMIT_SHA'
     - 'gcr.io/$PROJECT_ID/piehands-crm-backend:latest'
 
 # Build configuration

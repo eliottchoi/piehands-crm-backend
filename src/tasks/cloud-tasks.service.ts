@@ -33,8 +33,13 @@ export class CloudTasksService {
 
   // 🎯 이메일 발송 작업 큐에 추가
   async scheduleEmailTask(payload: EmailTaskPayload): Promise<string> {
-    const queueName = payload.priority === 'high' ? 'email-high-priority' : 'email-sending';
-    const queuePath = this.client.queuePath(this.projectId, this.location, queueName);
+    const queueName =
+      payload.priority === 'high' ? 'email-high-priority' : 'email-sending';
+    const queuePath = this.client.queuePath(
+      this.projectId,
+      this.location,
+      queueName,
+    );
 
     const task = {
       httpRequest: {
@@ -45,9 +50,11 @@ export class CloudTasksService {
         },
         body: Buffer.from(JSON.stringify(payload)).toString('base64'),
       },
-      scheduleTime: payload.scheduleTime ? {
-        seconds: Math.floor(payload.scheduleTime.getTime() / 1000),
-      } : undefined,
+      scheduleTime: payload.scheduleTime
+        ? {
+            seconds: Math.floor(payload.scheduleTime.getTime() / 1000),
+          }
+        : undefined,
     };
 
     try {
@@ -65,8 +72,15 @@ export class CloudTasksService {
   }
 
   // 🎯 IP Warm-up 리셋 작업 스케줄링 (매일 자정)
-  async scheduleWarmupReset(payload: WarmupResetPayload, scheduleTime: Date): Promise<string> {
-    const queuePath = this.client.queuePath(this.projectId, this.location, 'warmup-management');
+  async scheduleWarmupReset(
+    payload: WarmupResetPayload,
+    scheduleTime: Date,
+  ): Promise<string> {
+    const queuePath = this.client.queuePath(
+      this.projectId,
+      this.location,
+      'warmup-management',
+    );
 
     const task = {
       httpRequest: {
@@ -88,7 +102,9 @@ export class CloudTasksService {
         task,
       });
 
-      this.logger.log(`Warmup reset task scheduled: ${response.name} for ${scheduleTime}`);
+      this.logger.log(
+        `Warmup reset task scheduled: ${response.name} for ${scheduleTime}`,
+      );
       return response.name;
     } catch (error) {
       this.logger.error(`Failed to schedule warmup reset: ${error.message}`);
@@ -102,7 +118,7 @@ export class CloudTasksService {
     userIds: string[],
     templateId: string,
     scheduleTime?: Date,
-    workspaceId?: string
+    workspaceId?: string,
   ): Promise<string[]> {
     const tasks: Promise<string>[] = [];
 
@@ -123,7 +139,9 @@ export class CloudTasksService {
 
     try {
       const taskNames = await Promise.all(tasks);
-      this.logger.log(`Scheduled ${taskNames.length} email tasks for campaign ${campaignId}`);
+      this.logger.log(
+        `Scheduled ${taskNames.length} email tasks for campaign ${campaignId}`,
+      );
       return taskNames;
     } catch (error) {
       this.logger.error(`Failed to schedule campaign batch: ${error.message}`);
@@ -134,7 +152,7 @@ export class CloudTasksService {
   // 🎯 Helper: 현재 서비스 URL 가져오기
   private getServiceUrl(): string {
     if (process.env.NODE_ENV === 'production') {
-      return 'https://piehands-crm-backend-310117686396.us-central1.run.app';
+      return 'https://crm-backend-310117686396.us-central1.run.app';
     }
     return 'http://localhost:3000';
   }
@@ -187,7 +205,11 @@ export class CloudTasksService {
     ];
 
     for (const queueConfig of queues) {
-      const queuePath = this.client.queuePath(this.projectId, this.location, queueConfig.name);
+      const queuePath = this.client.queuePath(
+        this.projectId,
+        this.location,
+        queueConfig.name,
+      );
 
       try {
         await this.client.createQueue({
@@ -200,10 +222,13 @@ export class CloudTasksService {
         });
         this.logger.log(`Created queue: ${queueConfig.name}`);
       } catch (error) {
-        if (error.code === 6) { // ALREADY_EXISTS
+        if (error.code === 6) {
+          // ALREADY_EXISTS
           this.logger.log(`Queue already exists: ${queueConfig.name}`);
         } else {
-          this.logger.error(`Failed to create queue ${queueConfig.name}: ${error.message}`);
+          this.logger.error(
+            `Failed to create queue ${queueConfig.name}: ${error.message}`,
+          );
         }
       }
     }

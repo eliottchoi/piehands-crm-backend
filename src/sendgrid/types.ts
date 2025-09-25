@@ -13,7 +13,7 @@ export interface SendGridMailData {
   trackingSettings?: {
     clickTracking?: { enable: boolean; enableText?: boolean };
     openTracking?: { enable: boolean; substitutionTag?: string };
-    subscriptionTracking?: { 
+    subscriptionTracking?: {
       enable: boolean;
       text?: string;
       html?: string;
@@ -31,7 +31,15 @@ export interface SendGridResponse {
 }
 
 export interface SendGridEvent {
-  event: 'delivered' | 'opened' | 'clicked' | 'bounce' | 'unsubscribe' | 'spam_report' | 'dropped' | 'deferred';
+  event:
+    | 'delivered'
+    | 'opened'
+    | 'clicked'
+    | 'bounce'
+    | 'unsubscribe'
+    | 'spam_report'
+    | 'dropped'
+    | 'deferred';
   email: string;
   timestamp: number;
   sg_message_id: string;
@@ -42,7 +50,7 @@ export interface SendGridEvent {
   reason?: string; // for bounce events
   status?: string; // for bounce events
   type?: string; // 'bounce', 'blocked'
-  
+
   // Additional fields for different event types
   category?: string[];
   asm_group_id?: number;

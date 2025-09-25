@@ -16,7 +16,9 @@ export class SendGridWebhookService {
       try {
         await this.processEvent(event);
       } catch (error) {
-        this.logger.error(`Failed to process event ${event.sg_event_id || event.sg_message_id}: ${error.message}`);
+        this.logger.error(
+          `Failed to process event ${event.sg_event_id || event.sg_message_id}: ${error.message}`,
+        );
         // 하나의 이벤트 실패가 전체를 망치지 않도록 계속 진행
       }
     }
@@ -27,7 +29,7 @@ export class SendGridWebhookService {
   // 🎯 개별 이벤트 처리
   private async processEvent(event: SendGridEvent): Promise<void> {
     const { email, timestamp, sg_message_id } = event;
-    
+
     // 1. 이메일로 사용자 찾기
     const user = await this.findUserByEmail(email);
     if (!user) {
@@ -74,7 +76,7 @@ export class SendGridWebhookService {
         messageId: event.sg_message_id,
         email: event.email,
         timestamp: new Date(event.timestamp * 1000),
-      })
+      }),
     ]);
   }
 
@@ -95,7 +97,7 @@ export class SendGridWebhookService {
         userAgent: event.useragent,
         ipAddress: event.ip,
         timestamp: new Date(event.timestamp * 1000),
-      })
+      }),
     ]);
   }
 
@@ -118,7 +120,7 @@ export class SendGridWebhookService {
         userAgent: event.useragent,
         ipAddress: event.ip,
         timestamp: new Date(event.timestamp * 1000),
-      })
+      }),
     ]);
   }
 
@@ -136,7 +138,7 @@ export class SendGridWebhookService {
       // User email_status 업데이트 (중요!)
       this.prisma.user.update({
         where: { id: user.id },
-        data: { emailStatus: 'bounced' }
+        data: { emailStatus: 'bounced' },
       }),
 
       // User Event 추가
@@ -145,7 +147,7 @@ export class SendGridWebhookService {
         reason: event.reason,
         bounceType: event.type,
         timestamp: new Date(event.timestamp * 1000),
-      })
+      }),
     ]);
 
     this.logger.warn(`Email bounced for user ${user.id}: ${event.reason}`);
@@ -163,7 +165,7 @@ export class SendGridWebhookService {
       // User email_status 업데이트 (중요!)
       this.prisma.user.update({
         where: { id: user.id },
-        data: { emailStatus: 'unsubscribed' }
+        data: { emailStatus: 'unsubscribed' },
       }),
 
       // User Event 추가
@@ -171,7 +173,7 @@ export class SendGridWebhookService {
         messageId: event.sg_message_id,
         email: event.email,
         timestamp: new Date(event.timestamp * 1000),
-      })
+      }),
     ]);
 
     this.logger.log(`User ${user.id} unsubscribed via email ${event.email}`);
@@ -183,18 +185,20 @@ export class SendGridWebhookService {
       // User email_status 업데이트 (스팸 신고는 unsubscribe와 동일 처리)
       this.prisma.user.update({
         where: { id: user.id },
-        data: { emailStatus: 'unsubscribed' }
+        data: { emailStatus: 'unsubscribed' },
       }),
-      
+
       // User Event 추가
       this.createUserEvent(user.id, 'email_spam_report', {
         messageId: event.sg_message_id,
         email: event.email,
         timestamp: new Date(event.timestamp * 1000),
-      })
+      }),
     ]);
 
-    this.logger.warn(`Spam report received for user ${user.id}: ${event.email}`);
+    this.logger.warn(
+      `Spam report received for user ${user.id}: ${event.email}`,
+    );
   }
 
   // 🎯 Helper: 이메일로 사용자 찾기
@@ -203,9 +207,9 @@ export class SendGridWebhookService {
       where: {
         properties: {
           path: ['email'],
-          equals: email
-        }
-      }
+          equals: email,
+        },
+      },
     });
   }
 
@@ -216,15 +220,21 @@ export class SendGridWebhookService {
     try {
       return await this.prisma.emailLog.updateMany({
         where: { sendgridMessageId: messageId },
-        data: updateData
+        data: updateData,
       });
     } catch (error) {
-      this.logger.error(`Failed to update email log for ${messageId}: ${error.message}`);
+      this.logger.error(
+        `Failed to update email log for ${messageId}: ${error.message}`,
+      );
     }
   }
 
   // 🎯 Helper: User Event 생성 (CRM 히스토리)
-  private async createUserEvent(userId: string, eventName: string, properties: any) {
+  private async createUserEvent(
+    userId: string,
+    eventName: string,
+    properties: any,
+  ) {
     try {
       return await this.prisma.event.create({
         data: {
@@ -232,7 +242,7 @@ export class SendGridWebhookService {
           name: eventName,
           properties,
           timestamp: new Date(),
-        }
+        },
       });
     } catch (error) {
       this.logger.error(`Failed to create user event: ${error.message}`);

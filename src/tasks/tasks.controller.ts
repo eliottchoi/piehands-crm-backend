@@ -27,9 +27,13 @@ export class TasksController {
       this.logger.log(`Processing email task for user ${payload.userId}`);
 
       // 1. Warm-up 제한 확인
-      const canSend = await this.warmupService.checkDailyLimit(payload.workspaceId);
+      const canSend = await this.warmupService.checkDailyLimit(
+        payload.workspaceId,
+      );
       if (!canSend) {
-        this.logger.warn(`Daily limit reached for workspace ${payload.workspaceId}`);
+        this.logger.warn(
+          `Daily limit reached for workspace ${payload.workspaceId}`,
+        );
         return { success: false, reason: 'daily_limit_reached' };
       }
 
@@ -38,8 +42,12 @@ export class TasksController {
       let user = null;
 
       if (!toEmail && payload.userId) {
-        user = await this.usersService.findOneById(payload.workspaceId, payload.userId, 10);
-        toEmail = (user.properties as any)?.email;
+        user = await this.usersService.findOneById(
+          payload.workspaceId,
+          payload.userId,
+          10,
+        );
+        toEmail = user.properties?.email;
 
         if (!toEmail) {
           this.logger.error(`No email found for user ${payload.userId}`);
@@ -47,7 +55,11 @@ export class TasksController {
         }
       } else if (payload.userId) {
         // 템플릿 렌더링을 위해 사용자 정보가 필요한 경우
-        user = await this.usersService.findOneById(payload.workspaceId, payload.userId, 10);
+        user = await this.usersService.findOneById(
+          payload.workspaceId,
+          payload.userId,
+          10,
+        );
       }
 
       // 3. 템플릿 정보 조회 및 렌더링 (제목/내용이 payload에 없는 경우)
@@ -55,7 +67,9 @@ export class TasksController {
       let html = payload.html;
 
       if ((!subject || !html) && payload.templateId) {
-        const template = await this.templatesService.findOne(payload.templateId);
+        const template = await this.templatesService.findOne(
+          payload.templateId,
+        );
         const templateContent = template.content as any;
 
         // 🎯 Liquid 템플릿 렌더링 추가
@@ -69,19 +83,34 @@ export class TasksController {
               name: userProperties.name || 'User',
               email: userProperties.email || '',
               ...userProperties,
-            }
+            },
           };
 
           // 템플릿 렌더링
-          subject = subject || await this.liquidEngine.parseAndRender(templateContent.subject || 'No Subject', scope);
-          html = html || await this.liquidEngine.parseAndRender(
-            templateContent.body_html || templateContent.body_markdown || templateContent.body_text || templateContent.message || '<p>No Content</p>',
-            scope
-          );
+          subject =
+            subject ||
+            (await this.liquidEngine.parseAndRender(
+              templateContent.subject || 'No Subject',
+              scope,
+            ));
+          html =
+            html ||
+            (await this.liquidEngine.parseAndRender(
+              templateContent.body_html ||
+                templateContent.body_markdown ||
+                templateContent.body_text ||
+                templateContent.message ||
+                '<p>No Content</p>',
+              scope,
+            ));
         } else {
           // 사용자 정보가 없는 경우 원본 템플릿 사용
           subject = subject || templateContent.subject || 'No Subject';
-          html = html || templateContent.body_html || templateContent.body || '<p>No Content</p>';
+          html =
+            html ||
+            templateContent.body_html ||
+            templateContent.body ||
+            '<p>No Content</p>';
         }
       }
 
@@ -101,9 +130,10 @@ export class TasksController {
         await this.warmupService.incrementDailyCount(payload.workspaceId);
       }
 
-      this.logger.log(`Email task completed for ${toEmail}: ${result.success ? 'SUCCESS' : 'FAILED'}`);
+      this.logger.log(
+        `Email task completed for ${toEmail}: ${result.success ? 'SUCCESS' : 'FAILED'}`,
+      );
       return { success: result.success, messageId: result.messageId };
-
     } catch (error) {
       this.logger.error(`Email task failed: ${error.message}`);
       throw error; // Cloud Tasks가 재시도하도록 에러 전파
@@ -114,12 +144,19 @@ export class TasksController {
   @Post('reset-warmup')
   async handleWarmupReset(@Body() payload: WarmupResetPayload) {
     try {
-      this.logger.log(`Processing warmup reset for workspace ${payload.workspaceId} on ${payload.date}`);
+      this.logger.log(
+        `Processing warmup reset for workspace ${payload.workspaceId} on ${payload.date}`,
+      );
 
       // 특정 워크스페이스가 지정된 경우
       if (payload.workspaceId && payload.workspaceId !== 'all') {
-        await this.warmupService.resetDailyCount(payload.workspaceId, payload.date);
-        this.logger.log(`Warmup reset completed for workspace ${payload.workspaceId}`);
+        await this.warmupService.resetDailyCount(
+          payload.workspaceId,
+          payload.date,
+        );
+        this.logger.log(
+          `Warmup reset completed for workspace ${payload.workspaceId}`,
+        );
       } else {
         // 모든 워크스페이스에 대해 리셋 (Cloud Scheduler 일괄 처리)
         await this.warmupService.resetAllWorkspacesDaily(payload.date);
@@ -127,7 +164,6 @@ export class TasksController {
       }
 
       return { success: true };
-
     } catch (error) {
       this.logger.error(`Warmup reset failed: ${error.message}`);
       throw error;
@@ -136,15 +172,18 @@ export class TasksController {
 
   // 🎯 Cloud Tasks에서 호출되는 캠페인 노드 실행 엔드포인트 (미래 확장용)
   @Post('execute-node')
-  async handleNodeExecution(@Body() payload: { userId: string; campaignId: string; nodeId: string }) {
+  async handleNodeExecution(
+    @Body() payload: { userId: string; campaignId: string; nodeId: string },
+  ) {
     try {
-      this.logger.log(`Processing node execution: ${payload.nodeId} for user ${payload.userId}`);
+      this.logger.log(
+        `Processing node execution: ${payload.nodeId} for user ${payload.userId}`,
+      );
 
       // TODO: Canvas 기반 노드 실행 로직 구현
       // 현재는 이메일 발송만 지원
 
       return { success: true, message: 'Node execution not implemented yet' };
-
     } catch (error) {
       this.logger.error(`Node execution failed: ${error.message}`);
       throw error;

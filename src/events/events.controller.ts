@@ -1,4 +1,13 @@
-import { Controller, Post, Body, HttpCode, UsePipes, ValidationPipe, Get, Query } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  UsePipes,
+  ValidationPipe,
+  Get,
+  Query,
+} from '@nestjs/common';
 import { EventsService } from './events.service';
 import { TrackEventDto } from './dto/track-event.dto';
 
@@ -15,7 +24,9 @@ export class EventsController {
   @Post('track')
   @HttpCode(202) // 202 Accepted for async processing
   @UsePipes(new ValidationPipe({ transform: true }))
-  async track(@Body() trackEventDto: TrackEventDto): Promise<{ status: string; message: string }> {
+  async track(
+    @Body() trackEventDto: TrackEventDto,
+  ): Promise<{ status: string; message: string }> {
     // Process the event asynchronously (for now, synchronously in Phase 1)
     await this.eventsService.track(trackEventDto);
 
@@ -26,8 +37,11 @@ export class EventsController {
   }
 
   @Get('names')
-  async getEventNames(@Query('workspaceId') workspaceId: string): Promise<{ eventNames: string[] }> {
-    const eventNames = await this.eventsService.getUniqueEventNames(workspaceId);
+  async getEventNames(
+    @Query('workspaceId') workspaceId: string,
+  ): Promise<{ eventNames: string[] }> {
+    const eventNames =
+      await this.eventsService.getUniqueEventNames(workspaceId);
     return { eventNames };
   }
 }

@@ -27,11 +27,11 @@ class UserToIdentifyDto {
   properties?: UserToIdentifyPropertiesDto;
 
   // This custom validation ensures that either 'id' or 'properties.email' exists, but not both.
-  @ValidateIf(o => !o.id && !o.properties?.email)
+  @ValidateIf((o) => !o.id && !o.properties?.email)
   @IsNotEmpty({ message: 'Either id or properties.email must be provided.' })
   private readonly eitherIdOrEmail: undefined;
 
-  @ValidateIf(o => o.id && o.properties?.email)
+  @ValidateIf((o) => o.id && o.properties?.email)
   @IsNotEmpty({ message: 'Provide either id or properties.email, not both.' })
   private readonly notBothIdAndEmail: undefined;
 }

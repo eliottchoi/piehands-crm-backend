@@ -1,4 +1,13 @@
-import { Controller, Post, Body, Query, HttpCode, Patch, Param, Get } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Query,
+  HttpCode,
+  Patch,
+  Param,
+  Get,
+} from '@nestjs/common';
 import { CampaignsService } from './campaigns.service';
 import { SendCampaignDto } from './dto/send-campaign.dto';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
@@ -29,7 +38,10 @@ export class CampaignsController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateCampaignDto: UpdateCampaignDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateCampaignDto: UpdateCampaignDto,
+  ) {
     if (updateCampaignDto.status === 'ACTIVE') {
       return this.campaignsService.activate(id);
     }
@@ -45,6 +57,9 @@ export class CampaignsController {
     // We are not awaiting this intentionally to return 202 immediately
     this.campaignsService.sendManualCampaign(workspaceId, sendCampaignDto);
 
-    return { status: 'processing', message: 'Campaign sending job has been queued.' };
+    return {
+      status: 'processing',
+      message: 'Campaign sending job has been queued.',
+    };
   }
 }

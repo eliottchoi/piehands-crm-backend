@@ -1,4 +1,22 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, Req, BadRequestException, RawBodyRequest, UsePipes, ValidationPipe, NotFoundException, HttpCode, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  Req,
+  BadRequestException,
+  RawBodyRequest,
+  UsePipes,
+  ValidationPipe,
+  NotFoundException,
+  HttpCode,
+  ParseIntPipe,
+  DefaultValuePipe,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -18,7 +36,10 @@ export class UsersController {
 
   @Post('bulk')
   @HttpCode(202)
-  bulkUpsertUsers(@Query('workspaceId') workspaceId: string, @Req() req: express.Request) {
+  bulkUpsertUsers(
+    @Query('workspaceId') workspaceId: string,
+    @Req() req: express.Request,
+  ) {
     if (!req.is('text/csv')) {
       throw new BadRequestException('Content-Type must be text/csv');
     }
@@ -26,18 +47,26 @@ export class UsersController {
     if (!req.body || !(req.body instanceof Buffer)) {
       throw new BadRequestException('Raw body is missing for csv upload.');
     }
-    
+
     const csvContent = req.body.toString('utf8');
     // We are not awaiting this intentionally to return 202 immediately
     this.usersService.bulkUpsertFromCsv(workspaceId, csvContent);
 
-    return { status: 'processing', message: 'User import job has been queued.' };
+    return {
+      status: 'processing',
+      message: 'User import job has been queued.',
+    };
   }
 
   @Get()
   findAll(
     @Query('workspaceId') workspaceId: string,
-    @Query('limit', new DefaultValuePipe(20), new ParseIntPipe({ errorHttpStatusCode: 400 })) limit: number,
+    @Query(
+      'limit',
+      new DefaultValuePipe(20),
+      new ParseIntPipe({ errorHttpStatusCode: 400 }),
+    )
+    limit: number,
     @Query('cursor') cursor?: string,
     @Query('search') search?: string,
   ) {
@@ -65,7 +94,10 @@ export class UsersController {
   }
 
   @Post(':id/properties')
-  addProperty(@Param('id') id: string, @Body() addUserPropertyDto: AddUserPropertyDto) {
+  addProperty(
+    @Param('id') id: string,
+    @Body() addUserPropertyDto: AddUserPropertyDto,
+  ) {
     return this.usersService.addProperty(id, addUserPropertyDto);
   }
 

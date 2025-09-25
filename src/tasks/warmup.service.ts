@@ -52,7 +52,9 @@ export class WarmupService {
           updated_at = NOW()
       `;
 
-      this.logger.debug(`Incremented daily count for workspace ${workspaceId} on ${today}`);
+      this.logger.debug(
+        `Incremented daily count for workspace ${workspaceId} on ${today}`,
+      );
     } catch (error) {
       this.logger.error(`Failed to increment daily count: ${error.message}`);
     }
@@ -77,7 +79,9 @@ export class WarmupService {
         },
       });
 
-      this.logger.log(`Reset daily count for workspace ${workspaceId} on ${date}`);
+      this.logger.log(
+        `Reset daily count for workspace ${workspaceId} on ${date}`,
+      );
     } catch (error) {
       this.logger.error(`Failed to reset daily count: ${error.message}`);
     }
@@ -103,7 +107,7 @@ export class WarmupService {
       if (warmupStartSetting) {
         startDate = new Date(warmupStartSetting.value);
         const daysSinceStart = Math.floor(
-          (Date.now() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+          (Date.now() - startDate.getTime()) / (1000 * 60 * 60 * 24),
         );
         currentDay = Math.min(daysSinceStart + 1, 10); // 최대 10일
       } else {
@@ -124,10 +128,14 @@ export class WarmupService {
         },
       });
 
-      const todaysSentCount = todayCountSetting ? parseInt(todayCountSetting.value) : 0;
+      const todaysSentCount = todayCountSetting
+        ? parseInt(todayCountSetting.value)
+        : 0;
 
       // 3. 오늘 제한량 계산
-      const todaysSchedule = this.WARMUP_SCHEDULE.find(s => s.day >= currentDay);
+      const todaysSchedule = this.WARMUP_SCHEDULE.find(
+        (s) => s.day >= currentDay,
+      );
       const todaysLimit = todaysSchedule ? todaysSchedule.maxEmails : 25000;
 
       const remainingToday = Math.max(0, todaysLimit - todaysSentCount);
@@ -173,7 +181,9 @@ export class WarmupService {
         },
       });
 
-      this.logger.log(`Initialized warmup for workspace ${workspaceId} starting ${today}`);
+      this.logger.log(
+        `Initialized warmup for workspace ${workspaceId} starting ${today}`,
+      );
     } catch (error) {
       // Unique constraint 에러는 무시 (이미 초기화됨)
       if (!error.code || error.code !== 'P2002') {
@@ -199,10 +209,12 @@ export class WarmupService {
 
       // 각 워크스페이스에 대해 일일 카운터 리셋
       await Promise.allSettled(
-        workspaces.map(ws => this.resetDailyCount(ws.workspaceId, date))
+        workspaces.map((ws) => this.resetDailyCount(ws.workspaceId, date)),
       );
 
-      this.logger.log(`Reset daily counters for ${workspaces.length} workspaces on ${date}`);
+      this.logger.log(
+        `Reset daily counters for ${workspaces.length} workspaces on ${date}`,
+      );
     } catch (error) {
       this.logger.error(`Failed to reset all workspaces: ${error.message}`);
       throw error;

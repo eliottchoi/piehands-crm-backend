@@ -35,7 +35,9 @@ async function main() {
         category: 'dance',
         country: 'US',
         is_verified: true,
-        last_posted_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+        last_posted_at: new Date(
+          Date.now() - 1 * 24 * 60 * 60 * 1000,
+        ).toISOString(),
       },
     },
     // Identified User 2: Micro-influencer, food category
@@ -49,7 +51,9 @@ async function main() {
         category: 'food',
         country: 'KR',
         is_verified: false,
-        last_posted_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        last_posted_at: new Date(
+          Date.now() - 3 * 24 * 60 * 60 * 1000,
+        ).toISOString(),
       },
     },
     // Unidentified User: Comedy creator, recently inactive
@@ -63,7 +67,9 @@ async function main() {
         category: 'comedy',
         country: 'MX',
         is_verified: true,
-        last_posted_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        last_posted_at: new Date(
+          Date.now() - 30 * 24 * 60 * 60 * 1000,
+        ).toISOString(),
       },
     },
     // Add 7 more creators
@@ -77,7 +83,9 @@ async function main() {
         category: ['tech', 'beauty', 'gaming'][i % 3],
         country: ['DE', 'JP', 'FR'][i % 3],
         is_verified: Math.random() > 0.8,
-        last_posted_at: new Date(Date.now() - Math.floor(Math.random() * 15) * 24 * 60 * 60 * 1000).toISOString(),
+        last_posted_at: new Date(
+          Date.now() - Math.floor(Math.random() * 15) * 24 * 60 * 60 * 1000,
+        ).toISOString(),
       },
     })),
   ];
@@ -113,7 +121,7 @@ async function main() {
       properties: { stream_duration_minutes: 60, peak_viewers: 12000 },
     },
   });
-  
+
   // Mike Chen's events
   await prisma.event.create({
     data: {
@@ -132,7 +140,6 @@ async function main() {
     },
   });
   console.log('Created realistic events for creators.');
-
 
   // 5. Create Campaigns (same as before)
   await prisma.campaign.create({

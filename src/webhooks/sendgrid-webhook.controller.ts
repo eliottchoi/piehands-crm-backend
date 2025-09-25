@@ -1,4 +1,11 @@
-import { Controller, Post, Body, Req, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Req,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { SendGridEvent } from '../sendgrid/types';
 import { Request } from 'express';
 import { SendGridWebhookService } from '../webhooks/sendgrid-webhook.service';
@@ -10,7 +17,10 @@ export class SendGridWebhookController {
   constructor(private readonly webhookService: SendGridWebhookService) {}
 
   @Post('sendgrid')
-  async handleSendGridWebhook(@Req() req: Request, @Body() events: SendGridEvent[]) {
+  async handleSendGridWebhook(
+    @Req() req: Request,
+    @Body() events: SendGridEvent[],
+  ) {
     try {
       // 🎯 1. SendGrid 시그니처 검증 (임시 비활성화)
       // const isValid = this.verifyWebhookSignature(req);
@@ -24,13 +34,14 @@ export class SendGridWebhookController {
       // 🎯 2. 즉시 응답 (SendGrid 요구사항)
       // 비동기 처리를 위해 setTimeout 사용
       setTimeout(() => {
-        this.webhookService.processEvents(events).catch(error => {
-          this.logger.error(`Failed to process SendGrid events: ${error.message}`);
+        this.webhookService.processEvents(events).catch((error) => {
+          this.logger.error(
+            `Failed to process SendGrid events: ${error.message}`,
+          );
         });
       }, 0);
 
       return { status: 'accepted', count: events.length };
-
     } catch (error) {
       this.logger.error(`SendGrid webhook error: ${error.message}`);
       throw error;
@@ -40,9 +51,13 @@ export class SendGridWebhookController {
   // 🎯 SendGrid 웹훅 시그니처 검증 (스팸 방지 핵심)
   private verifyWebhookSignature(req: Request): boolean {
     try {
-      const signature = req.headers['x-twilio-email-event-webhook-signature'] as string;
-      const timestamp = req.headers['x-twilio-email-event-webhook-timestamp'] as string;
-      
+      const signature = req.headers[
+        'x-twilio-email-event-webhook-signature'
+      ] as string;
+      const timestamp = req.headers[
+        'x-twilio-email-event-webhook-timestamp'
+      ] as string;
+
       if (!signature || !timestamp) {
         return false;
       }

@@ -3,6 +3,9 @@ import { CampaignsService } from './campaigns.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { Campaign } from '@prisma/client';
+import { SendGridService } from '../sendgrid/sendgrid.service';
+import { TemplatesService } from '../templates/templates.service';
+import { CampaignJobService } from './campaign-job.service';
 
 const mockPrismaService = {
   campaign: {
@@ -13,7 +16,18 @@ const mockPrismaService = {
   user: {
     findMany: jest.fn(),
   },
-  // We will mock the $transaction later if needed
+};
+
+const mockSendGridService = {
+  sendEmail: jest.fn(),
+};
+
+const mockTemplatesService = {
+  findOne: jest.fn(),
+};
+
+const mockCampaignJobService = {
+  startCampaignJob: jest.fn(),
 };
 
 describe('CampaignsService', () => {
@@ -23,14 +37,15 @@ describe('CampaignsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CampaignsService,
-        {
-          provide: PrismaService,
-          useValue: mockPrismaService,
-        },
+        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: SendGridService, useValue: mockSendGridService },
+        { provide: TemplatesService, useValue: mockTemplatesService },
+        { provide: CampaignJobService, useValue: mockCampaignJobService },
       ],
     }).compile();
 
     service = module.get<CampaignsService>(CampaignsService);
+    jest.clearAllMocks();
   });
 
   it('should be defined', () => {
@@ -59,7 +74,7 @@ describe('CampaignsService', () => {
       mockPrismaService.campaign.create.mockResolvedValue(expectedCampaign);
 
       const result = await service.create(createCampaignDto);
-      
+
       expect(mockPrismaService.campaign.create).toHaveBeenCalledWith({
         data: {
           ...createCampaignDto,
@@ -110,10 +125,21 @@ describe('CampaignsService', () => {
       const mockCampaign = {
         id: campaignId,
         workspaceId,
-        canvasDefinition: { // This should be Prisma.JsonValue, casting for test
-          nodes: [{ id: 'trigger_node', type: 'IMMEDIATE', data: { targetAudience: 'ALL_USERS' } }],
+        canvasDefinition: {
+          // This should be Prisma.JsonValue, casting for test
+          nodes: [
+            { id: 'trigger_node', type: 'IMMEDIATE', data: {} },
+            {
+              id: 'email_node',
+              type: 'EMAIL_SEND',
+              data: {
+                targetConfig: { type: 'ALL_USERS' },
+                templateId: 'tmpl_1',
+              },
+            },
+          ],
           edges: [],
-        } as any, 
+        } as any,
       };
       const mockUsers = [
         { id: 'user1', distinctId: 'user1' },
@@ -121,18 +147,27 @@ describe('CampaignsService', () => {
       ];
 
       mockPrismaService.campaign.findUnique.mockResolvedValue(mockCampaign);
+      mockPrismaService.campaign.update.mockResolvedValue({
+        ...mockCampaign,
+        status: 'SENDING',
+      });
       mockPrismaService.user.findMany.mockResolvedValue(mockUsers);
-      
+
       // This is a placeholder for the enrollment/queueing logic
       service.triggerCampaignForUsers = jest.fn();
 
       await service.activate(campaignId);
 
-      expect(mockPrismaService.campaign.findUnique).toHaveBeenCalledWith({ where: { id: campaignId } });
+      expect(mockPrismaService.campaign.findUnique).toHaveBeenCalledWith({
+        where: { id: campaignId },
+      });
       expect(mockPrismaService.user.findMany).toHaveBeenCalledWith({
         where: { workspaceId, emailStatus: 'active' },
       });
-      expect(service.triggerCampaignForUsers).toHaveBeenCalledWith(mockCampaign, mockUsers);
+      expect(service.triggerCampaignForUsers).toHaveBeenCalledWith(
+        expect.objectContaining({ id: campaignId }),
+        mockUsers,
+      );
     });
 
     it('should NOT start the campaign if trigger is not IMMEDIATE', async () => {
@@ -140,12 +175,30 @@ describe('CampaignsService', () => {
       const mockCampaign = {
         id: campaignId,
         canvasDefinition: {
-          nodes: [{ id: 'trigger_node', type: 'EVENT_BASED', data: { eventName: 'SignUp' } }],
+          nodes: [
+            {
+              id: 'trigger_node',
+              type: 'EVENT_BASED',
+              data: { eventName: 'SignUp' },
+            },
+            {
+              id: 'email_node',
+              type: 'EMAIL_SEND',
+              data: {
+                targetConfig: { type: 'ALL_USERS' },
+                templateId: 'tmpl_1',
+              },
+            },
+          ],
           edges: [],
         } as any,
       };
 
       mockPrismaService.campaign.findUnique.mockResolvedValue(mockCampaign);
+      mockPrismaService.campaign.update.mockResolvedValue({
+        ...mockCampaign,
+        status: 'SENDING',
+      });
       service.triggerCampaignForUsers = jest.fn();
 
       await service.activate(campaignId);

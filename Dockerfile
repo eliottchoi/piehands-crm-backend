@@ -20,7 +20,7 @@ COPY . .
 RUN npm run install:prisma-manual
 RUN npm run build
 
-# Remove dev dependencies after build
+# Remove dev dependencies before copying to production image
 RUN npm prune --production
 
 # Production stage

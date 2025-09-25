@@ -25,7 +25,13 @@ export class AnalyticsController {
 
   // 🎯 실시간 이메일 활동 피드
   @Get('recent-activities')
-  async getRecentActivities(@Query('workspaceId') workspaceId: string, @Query('limit') limit: string = '50') {
-    return this.analyticsService.getRecentEmailActivities(workspaceId, parseInt(limit));
+  async getRecentActivities(
+    @Query('workspaceId') workspaceId: string,
+    @Query('limit') limit: string = '50',
+  ) {
+    return this.analyticsService.getRecentEmailActivities(
+      workspaceId,
+      parseInt(limit),
+    );
   }
 }

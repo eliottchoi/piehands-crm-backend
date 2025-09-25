@@ -32,7 +32,7 @@ describe('UsersService', () => {
         {
           provide: FIRESTORE,
           useValue: mockFirestore,
-        }
+        },
       ],
     }).compile();
 
@@ -43,26 +43,42 @@ describe('UsersService', () => {
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
-  
-  describe('findOneByDistinctId', () => {
-    it('should fetch user properties from Postgres and events from Firestore', async () => {
-      const mockUser = { id: 'user-uuid', distinctId: 'user-123', properties: { name: 'Test' } };
-      const mockEvents = [{ id: 'evt1', data: () => ({ name: 'test_event' }) }];
-      
-      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
-      mockFirestore.get.mockResolvedValue({ docs: mockEvents });
 
-      await service.findOneByDistinctId('ws_id', 'user-123', 30, undefined);
+  describe('findOneByDistinctId', () => {
+    it('should return user with events and compute next token', async () => {
+      const mockUser = {
+        id: 'user-uuid',
+        distinctId: 'user-123',
+        properties: { name: 'Test' },
+        events: [{ id: 'evt-1' }, { id: 'evt-2' }],
+      };
+
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+
+      const result = await service.findOneByDistinctId(
+        'ws_id',
+        'user-123',
+        2,
+        undefined,
+      );
 
       expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
-        where: { workspaceId_distinctId: { workspaceId: 'ws_id', distinctId: 'user-123' } }
+        where: {
+          workspaceId_distinctId: {
+            workspaceId: 'ws_id',
+            distinctId: 'user-123',
+          },
+        },
+        include: {
+          events: {
+            orderBy: { timestamp: 'desc' },
+            take: 2,
+          },
+        },
       });
-      
-      expect(mockFirestore.collection).toHaveBeenCalledWith('users');
-      expect(mockFirestore.doc).toHaveBeenCalledWith('user-uuid');
-      expect(mockFirestore.collection).toHaveBeenCalledWith('events');
-      expect(mockFirestore.orderBy).toHaveBeenCalledWith('timestamp', 'desc');
-      expect(mockFirestore.limit).toHaveBeenCalledWith(30);
+
+      expect(result.events).toEqual(mockUser.events);
+      expect(result.nextEventToken).toEqual('evt-2');
     });
   });
 });

@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Query, UsePipes, ValidationPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { UpdateSettingsDto, TestConnectionDto } from './dto/settings.dto';
 

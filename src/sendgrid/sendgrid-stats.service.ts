@@ -51,7 +51,8 @@ export class SendGridStatsService {
 
   // 🎯 워크스페이스별 SendGrid 설정
   private async initializeClient(workspaceId: string) {
-    const settings = await this.settingsService.getSendGridSettings(workspaceId);
+    const settings =
+      await this.settingsService.getSendGridSettings(workspaceId);
     const apiKey = settings.api_key || process.env.SENDGRID_API_KEY;
 
     if (!apiKey) {
@@ -63,7 +64,11 @@ export class SendGridStatsService {
   }
 
   // 🎯 전체 통계 조회 (대시보드용)
-  async getStats(workspaceId: string, startDate: string, endDate?: string): Promise<SendGridStats[]> {
+  async getStats(
+    workspaceId: string,
+    startDate: string,
+    endDate?: string,
+  ): Promise<SendGridStats[]> {
     try {
       await this.initializeClient(workspaceId);
 
@@ -88,7 +93,6 @@ export class SendGridStatsService {
       } else {
         throw new Error(`SendGrid API error: ${response.statusCode}`);
       }
-
     } catch (error) {
       this.logger.error(`Failed to get SendGrid stats: ${error.message}`);
       throw error;
@@ -117,7 +121,8 @@ export class SendGridStatsService {
                 method: 'GET' as const,
               };
 
-              const [repResponse, repBody] = await this.client.request(reputationRequest);
+              const [repResponse, repBody] =
+                await this.client.request(reputationRequest);
 
               return {
                 ip: ip.ip,
@@ -126,7 +131,9 @@ export class SendGridStatsService {
                 last_updated: new Date().toISOString(),
               };
             } catch (error) {
-              this.logger.warn(`Failed to get reputation for IP ${ip.ip}: ${error.message}`);
+              this.logger.warn(
+                `Failed to get reputation for IP ${ip.ip}: ${error.message}`,
+              );
               return {
                 ip: ip.ip,
                 reputation: 0,
@@ -134,14 +141,13 @@ export class SendGridStatsService {
                 last_updated: new Date().toISOString(),
               };
             }
-          })
+          }),
         );
 
         return ipReputations;
       } else {
         throw new Error(`SendGrid API error: ${response.statusCode}`);
       }
-
     } catch (error) {
       this.logger.error(`Failed to get IP reputation: ${error.message}`);
       throw error;
@@ -168,10 +174,13 @@ export class SendGridStatsService {
             url: '/v3/user/reputation',
             method: 'GET' as const,
           };
-          const [repResponse, repBody] = await this.client.request(reputationRequest);
+          const [repResponse, repBody] =
+            await this.client.request(reputationRequest);
           reputation = repBody.reputation || 0;
         } catch (error) {
-          this.logger.warn(`Failed to get account reputation: ${error.message}`);
+          this.logger.warn(
+            `Failed to get account reputation: ${error.message}`,
+          );
         }
 
         return {
@@ -183,7 +192,6 @@ export class SendGridStatsService {
       } else {
         throw new Error(`SendGrid API error: ${response.statusCode}`);
       }
-
     } catch (error) {
       this.logger.error(`Failed to get account info: ${error.message}`);
       throw error;
@@ -191,7 +199,11 @@ export class SendGridStatsService {
   }
 
   // 🎯 스팸 신고 분석
-  async getSpamReports(workspaceId: string, startDate: string, endDate?: string) {
+  async getSpamReports(
+    workspaceId: string,
+    startDate: string,
+    endDate?: string,
+  ) {
     try {
       await this.initializeClient(workspaceId);
 
@@ -216,7 +228,6 @@ export class SendGridStatsService {
       } else {
         throw new Error(`SendGrid API error: ${response.statusCode}`);
       }
-
     } catch (error) {
       this.logger.error(`Failed to get spam reports: ${error.message}`);
       throw error;
@@ -249,7 +260,6 @@ export class SendGridStatsService {
       } else {
         throw new Error(`SendGrid API error: ${response.statusCode}`);
       }
-
     } catch (error) {
       this.logger.error(`Failed to get bounces: ${error.message}`);
       throw error;
@@ -257,7 +267,11 @@ export class SendGridStatsService {
   }
 
   // 🎯 수신 거부 분석
-  async getUnsubscribes(workspaceId: string, startDate: string, endDate?: string) {
+  async getUnsubscribes(
+    workspaceId: string,
+    startDate: string,
+    endDate?: string,
+  ) {
     try {
       await this.initializeClient(workspaceId);
 
@@ -282,7 +296,6 @@ export class SendGridStatsService {
       } else {
         throw new Error(`SendGrid API error: ${response.statusCode}`);
       }
-
     } catch (error) {
       this.logger.error(`Failed to get unsubscribes: ${error.message}`);
       throw error;
@@ -300,7 +313,14 @@ export class SendGridStatsService {
 
     try {
       // 병렬로 모든 데이터 조회
-      const [stats, ipReputation, accountInfo, spamReports, bounces, unsubscribes] = await Promise.allSettled([
+      const [
+        stats,
+        ipReputation,
+        accountInfo,
+        spamReports,
+        bounces,
+        unsubscribes,
+      ] = await Promise.allSettled([
         this.getStats(workspaceId, startDateStr, endDateStr),
         this.getIPReputation(workspaceId),
         this.getAccountInfo(workspaceId),
@@ -319,8 +339,8 @@ export class SendGridStatsService {
       let totalUnsubscribes = 0;
 
       if (stats.status === 'fulfilled' && stats.value.length > 0) {
-        stats.value.forEach(day => {
-          day.stats.forEach(stat => {
+        stats.value.forEach((day) => {
+          day.stats.forEach((stat) => {
             totalSent += stat.metrics.requests || 0;
             totalDelivered += stat.metrics.delivered || 0;
             totalOpens += stat.metrics.unique_opens || 0;
@@ -333,12 +353,16 @@ export class SendGridStatsService {
       }
 
       // 비율 계산
-      const deliveryRate = totalSent > 0 ? (totalDelivered / totalSent) * 100 : 0;
-      const openRate = totalDelivered > 0 ? (totalOpens / totalDelivered) * 100 : 0;
-      const clickRate = totalDelivered > 0 ? (totalClicks / totalDelivered) * 100 : 0;
+      const deliveryRate =
+        totalSent > 0 ? (totalDelivered / totalSent) * 100 : 0;
+      const openRate =
+        totalDelivered > 0 ? (totalOpens / totalDelivered) * 100 : 0;
+      const clickRate =
+        totalDelivered > 0 ? (totalClicks / totalDelivered) * 100 : 0;
       const bounceRate = totalSent > 0 ? (totalBounces / totalSent) * 100 : 0;
       const spamRate = totalSent > 0 ? (totalSpamReports / totalSent) * 100 : 0;
-      const unsubscribeRate = totalDelivered > 0 ? (totalUnsubscribes / totalDelivered) * 100 : 0;
+      const unsubscribeRate =
+        totalDelivered > 0 ? (totalUnsubscribes / totalDelivered) * 100 : 0;
 
       return {
         summary: {
@@ -357,14 +381,22 @@ export class SendGridStatsService {
           unsubscribeRate: Math.round(unsubscribeRate * 100) / 100,
         },
         stats: stats.status === 'fulfilled' ? stats.value : [],
-        ipReputation: ipReputation.status === 'fulfilled' ? ipReputation.value : [],
-        accountInfo: accountInfo.status === 'fulfilled' ? accountInfo.value : null,
-        recentSpamReports: spamReports.status === 'fulfilled' ? spamReports.value.slice(0, 10) : [],
-        recentBounces: bounces.status === 'fulfilled' ? bounces.value.slice(0, 10) : [],
-        recentUnsubscribes: unsubscribes.status === 'fulfilled' ? unsubscribes.value.slice(0, 10) : [],
+        ipReputation:
+          ipReputation.status === 'fulfilled' ? ipReputation.value : [],
+        accountInfo:
+          accountInfo.status === 'fulfilled' ? accountInfo.value : null,
+        recentSpamReports:
+          spamReports.status === 'fulfilled'
+            ? spamReports.value.slice(0, 10)
+            : [],
+        recentBounces:
+          bounces.status === 'fulfilled' ? bounces.value.slice(0, 10) : [],
+        recentUnsubscribes:
+          unsubscribes.status === 'fulfilled'
+            ? unsubscribes.value.slice(0, 10)
+            : [],
         lastUpdated: new Date().toISOString(),
       };
-
     } catch (error) {
       this.logger.error(`Failed to get dashboard data: ${error.message}`);
       throw error;
@@ -382,8 +414,8 @@ export class SendGridStatsService {
 
       let todaysSent = 0;
       if (stats.length > 0) {
-        stats.forEach(day => {
-          day.stats.forEach(stat => {
+        stats.forEach((day) => {
+          day.stats.forEach((stat) => {
             todaysSent += stat.metrics.requests || 0;
           });
         });
@@ -391,14 +423,14 @@ export class SendGridStatsService {
 
       // 시간별 발송량 계산
       const currentHour = new Date().getHours();
-      const averagePerHour = currentHour > 0 ? Math.round(todaysSent / currentHour) : todaysSent;
+      const averagePerHour =
+        currentHour > 0 ? Math.round(todaysSent / currentHour) : todaysSent;
 
       return {
         todaysSent,
         averagePerHour,
         timestamp: new Date().toISOString(),
       };
-
     } catch (error) {
       this.logger.error(`Failed to get current sending rate: ${error.message}`);
       throw error;

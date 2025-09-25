@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Put, Body, Param, Query, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  Query,
+  Logger,
+} from '@nestjs/common';
 import { CampaignJobService, CampaignJobConfig } from './campaign-job.service';
 import { WarmupService } from '../tasks/warmup.service';
 
@@ -71,7 +80,7 @@ export class CampaignJobController {
   @Put(':jobId/control')
   async controlCampaignJob(
     @Param('jobId') jobId: string,
-    @Body() dto: CampaignJobControlDto
+    @Body() dto: CampaignJobControlDto,
   ) {
     let success = false;
     let message = '';
@@ -79,12 +88,16 @@ export class CampaignJobController {
     switch (dto.action) {
       case 'pause':
         success = await this.campaignJobService.pauseCampaignJob(jobId);
-        message = success ? 'Campaign job paused' : 'Failed to pause campaign job';
+        message = success
+          ? 'Campaign job paused'
+          : 'Failed to pause campaign job';
         break;
 
       case 'resume':
         success = await this.campaignJobService.resumeCampaignJob(jobId);
-        message = success ? 'Campaign job resumed' : 'Failed to resume campaign job';
+        message = success
+          ? 'Campaign job resumed'
+          : 'Failed to resume campaign job';
         break;
 
       case 'cancel':
@@ -96,7 +109,9 @@ export class CampaignJobController {
         message = 'Invalid action';
     }
 
-    this.logger.log(`Campaign job ${jobId} ${dto.action}: ${success ? 'success' : 'failed'}`);
+    this.logger.log(
+      `Campaign job ${jobId} ${dto.action}: ${success ? 'success' : 'failed'}`,
+    );
 
     return {
       success,
@@ -114,7 +129,8 @@ export class CampaignJobController {
       };
     }
 
-    const jobs = await this.campaignJobService.getWorkspaceCampaignJobs(workspaceId);
+    const jobs =
+      await this.campaignJobService.getWorkspaceCampaignJobs(workspaceId);
 
     return {
       success: true,
@@ -135,24 +151,27 @@ export class CampaignJobController {
     }
 
     // 진행률 계산
-    const progressPercentage = status.totalUsers > 0
-      ? Math.round((status.processedUsers / status.totalUsers) * 100)
-      : 0;
+    const progressPercentage =
+      status.totalUsers > 0
+        ? Math.round((status.processedUsers / status.totalUsers) * 100)
+        : 0;
 
     // 처리량 계산 (이메일/시간)
     let emailsPerHour = 0;
     if (status.startedAt && status.processedUsers > 0) {
-      const startTime = typeof status.startedAt === 'string'
-        ? new Date(status.startedAt).getTime()
-        : status.startedAt.getTime();
+      const startTime =
+        typeof status.startedAt === 'string'
+          ? new Date(status.startedAt).getTime()
+          : status.startedAt.getTime();
       const elapsedHours = (Date.now() - startTime) / (1000 * 60 * 60);
       emailsPerHour = Math.round(status.processedUsers / elapsedHours);
     }
 
     // 성공률 계산
-    const successRate = status.processedUsers > 0
-      ? Math.round((status.successCount / status.processedUsers) * 100)
-      : 0;
+    const successRate =
+      status.processedUsers > 0
+        ? Math.round((status.successCount / status.processedUsers) * 100)
+        : 0;
 
     return {
       success: true,
@@ -171,15 +190,21 @@ export class CampaignJobController {
   async getWarmupStatus(@Param('workspaceId') workspaceId: string) {
     this.logger.log(`Fetching warmup status for workspace: ${workspaceId}`);
     try {
-      const warmupStatus = await this.warmupService.getWarmupStatus(workspaceId);
-      this.logger.debug(`Warmup status for ${workspaceId}: ${JSON.stringify(warmupStatus)}`);
+      const warmupStatus =
+        await this.warmupService.getWarmupStatus(workspaceId);
+      this.logger.debug(
+        `Warmup status for ${workspaceId}: ${JSON.stringify(warmupStatus)}`,
+      );
 
       return {
         success: true,
         data: warmupStatus,
       };
     } catch (error) {
-      this.logger.error(`Failed to get warmup status for ${workspaceId}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to get warmup status for ${workspaceId}: ${error.message}`,
+        error.stack,
+      );
       return {
         success: false,
         message: `Failed to get warmup status: ${error.message}`,

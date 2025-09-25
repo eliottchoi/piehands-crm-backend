@@ -34,7 +34,7 @@ async function setupCloudScheduler() {
   const projectId = process.env.GOOGLE_CLOUD_PROJECT || 'agent-growth-and-ops';
   const location = process.env.GOOGLE_CLOUD_REGION || 'us-central1';
   const serviceUrl = process.env.NODE_ENV === 'production'
-    ? 'https://piehands-crm-backend-310117686396.us-central1.run.app'
+    ? 'https://crm-backend-310117686396.us-central1.run.app'
     : 'http://localhost:3000';
 
   // IP Warm-up 일일 리셋 작업 (매일 자정 UTC)

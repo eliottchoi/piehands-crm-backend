@@ -24,12 +24,12 @@ import { EventsModule } from './events/events.module';
     TemplatesModule,
     UsersModule,
     CampaignsModule,
-    HealthModule,       // 🎯 Health Check
-    AnalyticsModule,    // 🎯 이메일 분석 & 로그 조회
-    SettingsModule,     // 🎯 워크스페이스 설정 관리
-    SendGridModule,     // 🎯 SendGrid 이메일 발송 (활성화!)
-    WebhooksModule,     // 🎯 SendGrid 웹훅 수신 (활성화!)
-    EventsModule,       // 🎯 사용자 이벤트 수집 (활성화!)
+    HealthModule, // 🎯 Health Check
+    AnalyticsModule, // 🎯 이메일 분석 & 로그 조회
+    SettingsModule, // 🎯 워크스페이스 설정 관리
+    SendGridModule, // 🎯 SendGrid 이메일 발송 (활성화!)
+    WebhooksModule, // 🎯 SendGrid 웹훅 수신 (활성화!)
+    EventsModule, // 🎯 사용자 이벤트 수집 (활성화!)
   ],
   controllers: [AppController],
   providers: [AppService],

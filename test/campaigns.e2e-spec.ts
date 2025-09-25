@@ -21,16 +21,16 @@ describe('CampaignsController (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
-    
+
     prisma = app.get<PrismaService>(PrismaService);
-    
+
     testWorkspace = await prisma.workspace.create({
       data: {
         id: 'ws_test',
         name: 'E2E Test Workspace',
-      }
+      },
     });
-    
+
     const template = await prisma.template.create({
       data: {
         workspaceId: testWorkspace.id,
@@ -38,7 +38,7 @@ describe('CampaignsController (e2e)', () => {
         type: TemplateType.EMAIL,
         content: { subject: 'Test' },
         createdBy: 'e2e-test',
-      }
+      },
     });
     testTemplateId = template.id;
   });
@@ -58,7 +58,7 @@ describe('CampaignsController (e2e)', () => {
           createdBy: 'e2e-test-user',
         })
         .expect(201);
-      
+
       expect(response.body.name).toEqual(campaignName);
       expect(response.body.status).toEqual('DRAFT');
     });

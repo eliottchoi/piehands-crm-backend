@@ -23,7 +23,7 @@ export class PreviewTemplateDto {
   @IsString()
   @IsNotEmpty()
   workspaceId: string;
-  
+
   @IsString()
   @IsNotEmpty()
   userId: string;

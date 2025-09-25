@@ -1,5 +1,10 @@
 import { Controller, Get, Query, Param } from '@nestjs/common';
-import { SendGridStatsService, SendGridStats, ReputationData, SendGridAccount } from './sendgrid-stats.service';
+import {
+  SendGridStatsService,
+  SendGridStats,
+  ReputationData,
+  SendGridAccount,
+} from './sendgrid-stats.service';
 
 @Controller('sendgrid')
 export class SendGridStatsController {
@@ -9,11 +14,14 @@ export class SendGridStatsController {
   @Get('dashboard/:workspaceId')
   async getDashboardData(
     @Param('workspaceId') workspaceId: string,
-    @Query('days') days?: string
+    @Query('days') days?: string,
   ) {
     try {
       const daysNumber = days ? parseInt(days, 10) : 7;
-      const data = await this.sendGridStatsService.getDashboardData(workspaceId, daysNumber);
+      const data = await this.sendGridStatsService.getDashboardData(
+        workspaceId,
+        daysNumber,
+      );
 
       return {
         success: true,
@@ -32,7 +40,7 @@ export class SendGridStatsController {
   async getStats(
     @Param('workspaceId') workspaceId: string,
     @Query('startDate') startDate: string,
-    @Query('endDate') endDate?: string
+    @Query('endDate') endDate?: string,
   ) {
     try {
       if (!startDate) {
@@ -42,7 +50,11 @@ export class SendGridStatsController {
         };
       }
 
-      const stats = await this.sendGridStatsService.getStats(workspaceId, startDate, endDate);
+      const stats = await this.sendGridStatsService.getStats(
+        workspaceId,
+        startDate,
+        endDate,
+      );
 
       return {
         success: true,
@@ -60,7 +72,8 @@ export class SendGridStatsController {
   @Get('reputation/:workspaceId')
   async getIPReputation(@Param('workspaceId') workspaceId: string) {
     try {
-      const reputation = await this.sendGridStatsService.getIPReputation(workspaceId);
+      const reputation =
+        await this.sendGridStatsService.getIPReputation(workspaceId);
 
       return {
         success: true,
@@ -78,7 +91,8 @@ export class SendGridStatsController {
   @Get('account/:workspaceId')
   async getAccountInfo(@Param('workspaceId') workspaceId: string) {
     try {
-      const accountInfo = await this.sendGridStatsService.getAccountInfo(workspaceId);
+      const accountInfo =
+        await this.sendGridStatsService.getAccountInfo(workspaceId);
 
       return {
         success: true,
@@ -97,7 +111,7 @@ export class SendGridStatsController {
   async getSpamReports(
     @Param('workspaceId') workspaceId: string,
     @Query('startDate') startDate: string,
-    @Query('endDate') endDate?: string
+    @Query('endDate') endDate?: string,
   ) {
     try {
       if (!startDate) {
@@ -107,7 +121,11 @@ export class SendGridStatsController {
         };
       }
 
-      const spamReports = await this.sendGridStatsService.getSpamReports(workspaceId, startDate, endDate);
+      const spamReports = await this.sendGridStatsService.getSpamReports(
+        workspaceId,
+        startDate,
+        endDate,
+      );
 
       return {
         success: true,
@@ -126,7 +144,7 @@ export class SendGridStatsController {
   async getBounces(
     @Param('workspaceId') workspaceId: string,
     @Query('startDate') startDate: string,
-    @Query('endDate') endDate?: string
+    @Query('endDate') endDate?: string,
   ) {
     try {
       if (!startDate) {
@@ -136,7 +154,11 @@ export class SendGridStatsController {
         };
       }
 
-      const bounces = await this.sendGridStatsService.getBounces(workspaceId, startDate, endDate);
+      const bounces = await this.sendGridStatsService.getBounces(
+        workspaceId,
+        startDate,
+        endDate,
+      );
 
       return {
         success: true,
@@ -155,7 +177,7 @@ export class SendGridStatsController {
   async getUnsubscribes(
     @Param('workspaceId') workspaceId: string,
     @Query('startDate') startDate: string,
-    @Query('endDate') endDate?: string
+    @Query('endDate') endDate?: string,
   ) {
     try {
       if (!startDate) {
@@ -165,7 +187,11 @@ export class SendGridStatsController {
         };
       }
 
-      const unsubscribes = await this.sendGridStatsService.getUnsubscribes(workspaceId, startDate, endDate);
+      const unsubscribes = await this.sendGridStatsService.getUnsubscribes(
+        workspaceId,
+        startDate,
+        endDate,
+      );
 
       return {
         success: true,
@@ -183,7 +209,8 @@ export class SendGridStatsController {
   @Get('sending-rate/:workspaceId')
   async getCurrentSendingRate(@Param('workspaceId') workspaceId: string) {
     try {
-      const rate = await this.sendGridStatsService.getCurrentSendingRate(workspaceId);
+      const rate =
+        await this.sendGridStatsService.getCurrentSendingRate(workspaceId);
 
       return {
         success: true,

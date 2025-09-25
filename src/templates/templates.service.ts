@@ -4,7 +4,6 @@ import { CreateTemplateDto } from './dto/create-template.dto';
 import { UpdateTemplateDto } from './dto/update-template.dto';
 import { PreviewTemplateDto } from './dto/preview-template.dto';
 import { Liquid } from 'liquidjs';
-import { marked } from 'marked';
 import { Prisma, TemplateContentType } from '@prisma/client';
 
 const engine = new Liquid();
@@ -15,7 +14,7 @@ export class TemplatesService {
 
   async preview(previewTemplateDto: PreviewTemplateDto) {
     const { userId, contentType, content } = previewTemplateDto;
-    
+
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -36,7 +35,7 @@ export class TemplatesService {
         name: userProperties.name || 'User',
         email: userProperties.email || '',
         ...userProperties, // Include all other properties
-      }
+      },
     };
 
     const renderedSubject = await engine.parseAndRender(content.subject, scope);
@@ -46,6 +45,7 @@ export class TemplatesService {
     const parsedBody = await engine.parseAndRender(bodyContent, scope);
 
     if (contentType === TemplateContentType.MARKDOWN) {
+      const { marked } = await import('marked');
       renderedContent = await marked(parsedBody);
     } else {
       renderedContent = parsedBody;

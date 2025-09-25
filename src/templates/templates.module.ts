@@ -7,6 +7,6 @@ import { PrismaModule } from '../prisma/prisma.module';
   imports: [PrismaModule],
   controllers: [TemplatesController],
   providers: [TemplatesService],
-  exports: [TemplatesService] // 🎯 CampaignsService에서 사용하기 위해 export
+  exports: [TemplatesService], // 🎯 CampaignsService에서 사용하기 위해 export
 })
 export class TemplatesModule {}

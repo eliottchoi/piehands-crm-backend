@@ -1,4 +1,10 @@
-import { Injectable, BadRequestException, NotFoundException, Inject, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  Inject,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -9,14 +15,17 @@ import * as Papa from 'papaparse';
 
 @Injectable()
 export class UsersService {
-  constructor(
-    private prisma: PrismaService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
-  async findAll(workspaceId: string, limit: number, cursor?: string, search?: string) {
+  async findAll(
+    workspaceId: string,
+    limit: number,
+    cursor?: string,
+    search?: string,
+  ) {
     // Build search conditions
     const whereCondition: any = { workspaceId };
-    
+
     if (search?.trim()) {
       const searchTerm = search.trim().toLowerCase();
       whereCondition.OR = [
@@ -24,23 +33,23 @@ export class UsersService {
         {
           distinctId: {
             contains: searchTerm,
-            mode: 'insensitive'
-          }
+            mode: 'insensitive',
+          },
         },
         // Search in properties.name (JSONB search)
         {
           properties: {
             path: ['name'],
-            string_contains: searchTerm
-          }
+            string_contains: searchTerm,
+          },
         },
         // Search in properties.email (JSONB search)
         {
           properties: {
             path: ['email'],
-            string_contains: searchTerm
-          }
-        }
+            string_contains: searchTerm,
+          },
+        },
       ];
     }
 
@@ -56,24 +65,27 @@ export class UsersService {
         events: {
           take: 5, // Include some recent events for filtering
           orderBy: {
-            timestamp: 'desc'
-          }
-        }
-      }
+            timestamp: 'desc',
+          },
+        },
+      },
     });
 
-    const nextCursor = users.length === limit ? users[users.length - 1].id : null;
+    const nextCursor =
+      users.length === limit ? users[users.length - 1].id : null;
 
     return {
       users,
       nextCursor,
-      totalCount: search ? undefined : await this.getTotalUserCount(workspaceId), // Only count when not searching
+      totalCount: search
+        ? undefined
+        : await this.getTotalUserCount(workspaceId), // Only count when not searching
     };
   }
-  
+
   private async getTotalUserCount(workspaceId: string): Promise<number> {
     return this.prisma.user.count({
-      where: { workspaceId }
+      where: { workspaceId },
     });
   }
 
@@ -84,7 +96,9 @@ export class UsersService {
     if (distinct_id) {
       // Upsert logic: if distinct_id is provided
       return this.prisma.user.upsert({
-        where: { workspaceId_distinctId: { workspaceId, distinctId: distinct_id } },
+        where: {
+          workspaceId_distinctId: { workspaceId, distinctId: distinct_id },
+        },
         update: { properties: properties || {} },
         create: {
           workspaceId,
@@ -98,7 +112,9 @@ export class UsersService {
         where: { id: workspaceId },
       });
       if (!workspace) {
-        throw new NotFoundException(`Workspace with ID "${workspaceId}" not found.`);
+        throw new NotFoundException(
+          `Workspace with ID "${workspaceId}" not found.`,
+        );
       }
 
       return this.prisma.user.create({
@@ -114,7 +130,12 @@ export class UsersService {
     }
   }
 
-  async findOneById(workspaceId: string, id: string, eventLimit: number, eventNextToken?: string) {
+  async findOneById(
+    workspaceId: string,
+    id: string,
+    eventLimit: number,
+    eventNextToken?: string,
+  ) {
     const user = await this.prisma.user.findUnique({
       where: { id, workspaceId },
       include: {
@@ -124,8 +145,8 @@ export class UsersService {
           },
           take: eventLimit,
           // Cursor-based pagination would be implemented here using the eventNextToken
-        }
-      }
+        },
+      },
     });
 
     if (!user) {
@@ -133,16 +154,23 @@ export class UsersService {
     }
 
     // Shaping the response to match the desired output
-    const { events, ...userData } = user;
+    const { events: userEvents, ...userData } = user;
+    const events = userEvents ?? [];
 
     return {
       ...userData,
       events,
-      nextEventToken: events.length === eventLimit ? events[events.length - 1].id : null,
+      nextEventToken:
+        events.length === eventLimit ? events[events.length - 1].id : null,
     };
   }
 
-  async findOneByDistinctId(workspaceId: string, distinctId: string, eventLimit: number, eventNextToken?: string) {
+  async findOneByDistinctId(
+    workspaceId: string,
+    distinctId: string,
+    eventLimit: number,
+    eventNextToken?: string,
+  ) {
     const user = await this.prisma.user.findUnique({
       where: { workspaceId_distinctId: { workspaceId, distinctId } },
       include: {
@@ -152,23 +180,24 @@ export class UsersService {
           },
           take: eventLimit,
           // Cursor-based pagination would be implemented here using the eventNextToken
-        }
-      }
+        },
+      },
     });
 
     if (!user) {
-      throw new NotFoundException(`User with distinctId "${distinctId}" not found.`);
+      throw new NotFoundException(
+        `User with distinctId "${distinctId}" not found.`,
+      );
     }
 
     // Shaping the response to match the desired output
-    const { events, ...userData } = user;
-
-    console.log('[UsersService] Final user object with events:', JSON.stringify({ ...userData, events }, null, 2));
+    const { events = [], ...userData } = user;
 
     return {
       ...userData,
       events,
-      nextEventToken: events.length === eventLimit ? events[events.length - 1].id : null,
+      nextEventToken:
+        events.length === eventLimit ? events[events.length - 1].id : null,
     };
   }
 
@@ -187,7 +216,7 @@ export class UsersService {
     // Regex to find JSON objects, robust against newlines within the object
     const jsonObjects = cleanJsonl.match(/({.*?})/g) || [];
 
-    const parsingResults = jsonObjects.map(objStr => {
+    const parsingResults = jsonObjects.map((objStr) => {
       try {
         const parsed = JSON.parse(objStr);
         return { success: true, data: parsed };
@@ -196,32 +225,45 @@ export class UsersService {
       }
     });
 
-    const successfulUsers = parsingResults.filter(r => r.success).map(r => r.data);
-    const failedLines = parsingResults.filter(r => !r.success).map(r => r.data);
+    const successfulUsers = parsingResults
+      .filter((r) => r.success)
+      .map((r) => r.data);
+    const failedLines = parsingResults
+      .filter((r) => !r.success)
+      .map((r) => r.data);
 
     console.log('--- Bulk User Import Summary ---');
     console.log(`Total potential objects found: ${jsonObjects.length}`);
     console.log(`Successfully parsed users: ${successfulUsers.length}`);
     console.log(`Failed to parse objects: ${failedLines.length}`);
     if (successfulUsers.length > 0) {
-      console.log('Sample of successfully parsed users (up to 3):', JSON.stringify(successfulUsers.slice(0, 3), null, 2));
+      console.log(
+        'Sample of successfully parsed users (up to 3):',
+        JSON.stringify(successfulUsers.slice(0, 3), null, 2),
+      );
     }
     if (failedLines.length > 0) {
       console.log('Sample of failed lines (up to 3):', failedLines.slice(0, 3));
     }
     console.log('-----------------------------');
 
-
     if (successfulUsers.length === 0) {
-      throw new BadRequestException('No valid user data found in the provided file.');
+      throw new BadRequestException(
+        'No valid user data found in the provided file.',
+      );
     }
 
-    const promises = successfulUsers.map(user => {
-      const { distinct_id, properties } = user as { distinct_id?: string, properties: any };
-      
+    const promises = successfulUsers.map((user) => {
+      const { distinct_id, properties } = user as {
+        distinct_id?: string;
+        properties: any;
+      };
+
       if (distinct_id) {
         return this.prisma.user.upsert({
-          where: { workspaceId_distinctId: { workspaceId, distinctId: distinct_id } },
+          where: {
+            workspaceId_distinctId: { workspaceId, distinctId: distinct_id },
+          },
           update: { properties: properties || {} },
           create: {
             workspaceId,
@@ -238,14 +280,22 @@ export class UsersService {
         });
       }
     });
-    
+
     // This will run in the background
     // We don't await here to avoid blocking the request, but we handle the promise to avoid unhandled rejection errors.
-    this.prisma.$transaction(promises).then(result => {
-      console.log(`Processed ${result.length} users for workspace ${workspaceId}`);
-    }).catch(error => {
-      console.error(`Error processing bulk upsert for workspace ${workspaceId}:`, error);
-    });
+    this.prisma
+      .$transaction(promises)
+      .then((result) => {
+        console.log(
+          `Processed ${result.length} users for workspace ${workspaceId}`,
+        );
+      })
+      .catch((error) => {
+        console.error(
+          `Error processing bulk upsert for workspace ${workspaceId}:`,
+          error,
+        );
+      });
   }
 
   async bulkUpsertFromCsv(workspaceId: string, csvContent: string) {
@@ -261,17 +311,21 @@ export class UsersService {
     if (errors.length > 0) {
       console.warn('CSV parsing errors found:', errors);
     }
-    
+
     if (!users || users.length === 0) {
-      throw new BadRequestException('No valid user data found in the provided CSV file.');
+      throw new BadRequestException(
+        'No valid user data found in the provided CSV file.',
+      );
     }
 
-    const promises = (users as Record<string, any>[]).map(row => {
+    const promises = (users as Record<string, any>[]).map((row) => {
       const { distinct_id, ...properties } = row;
-      
+
       if (distinct_id) {
         return this.prisma.user.upsert({
-          where: { workspaceId_distinctId: { workspaceId, distinctId: distinct_id } },
+          where: {
+            workspaceId_distinctId: { workspaceId, distinctId: distinct_id },
+          },
           update: { properties },
           create: {
             workspaceId,
@@ -288,12 +342,20 @@ export class UsersService {
         });
       }
     });
-    
-    this.prisma.$transaction(promises).then(result => {
-      console.log(`Processed ${result.length} users from CSV for workspace ${workspaceId}`);
-    }).catch(error => {
-      console.error(`Error processing bulk upsert from CSV for workspace ${workspaceId}:`, error);
-    });
+
+    this.prisma
+      .$transaction(promises)
+      .then((result) => {
+        console.log(
+          `Processed ${result.length} users from CSV for workspace ${workspaceId}`,
+        );
+      })
+      .catch((error) => {
+        console.error(
+          `Error processing bulk upsert from CSV for workspace ${workspaceId}:`,
+          error,
+        );
+      });
   }
 
   async update(id: string, updateUserDto: UpdateUserDto) {
@@ -352,16 +414,22 @@ export class UsersService {
 
     // 1. Check if the newDistinctId is already in use
     const existingUser = await this.prisma.user.findUnique({
-      where: { workspaceId_distinctId: { workspaceId, distinctId: newDistinctId } },
+      where: {
+        workspaceId_distinctId: { workspaceId, distinctId: newDistinctId },
+      },
     });
     if (existingUser) {
-      throw new ConflictException(`Distinct ID "${newDistinctId}" is already in use.`);
+      throw new ConflictException(
+        `Distinct ID "${newDistinctId}" is already in use.`,
+      );
     }
 
     // 2. Find the user to identify
     let userToUpdate;
     if (userToIdentify.id) {
-      userToUpdate = await this.prisma.user.findUnique({ where: { id: userToIdentify.id } });
+      userToUpdate = await this.prisma.user.findUnique({
+        where: { id: userToIdentify.id },
+      });
     } else if (userToIdentify.properties?.email) {
       userToUpdate = await this.prisma.user.findFirst({
         where: {
@@ -377,7 +445,7 @@ export class UsersService {
     if (!userToUpdate) {
       throw new NotFoundException('User to identify not found.');
     }
-    
+
     // 3. Update the user with the new distinctId
     return this.prisma.user.update({
       where: { id: userToUpdate.id },
@@ -399,11 +467,11 @@ export class UsersService {
     });
 
     const propertyKeys = new Set<string>();
-    
+
     // Extract all unique keys from user properties
-    users.forEach(user => {
+    users.forEach((user) => {
       if (user.properties && typeof user.properties === 'object') {
-        Object.keys(user.properties as object).forEach(key => {
+        Object.keys(user.properties as object).forEach((key) => {
           propertyKeys.add(key);
         });
       }

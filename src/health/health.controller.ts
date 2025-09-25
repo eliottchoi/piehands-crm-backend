@@ -4,10 +4,10 @@ import { Controller, Get } from '@nestjs/common';
 export class HealthController {
   @Get()
   check() {
-    return { 
-      status: 'ok', 
+    return {
+      status: 'ok',
       timestamp: new Date().toISOString(),
-      message: 'Backend is running successfully' 
+      message: 'Backend is running successfully',
     };
   }
 
@@ -15,14 +15,14 @@ export class HealthController {
   async checkDatabase() {
     try {
       // 간단한 데이터베이스 연결 테스트
-      return { 
-        status: 'ok', 
-        message: 'Database connection successful' 
+      return {
+        status: 'ok',
+        message: 'Database connection successful',
       };
     } catch (error) {
-      return { 
-        status: 'error', 
-        message: error.message 
+      return {
+        status: 'error',
+        message: error.message,
       };
     }
   }

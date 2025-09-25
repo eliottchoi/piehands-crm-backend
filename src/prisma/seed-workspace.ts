@@ -12,7 +12,7 @@ async function main() {
     create: {
       id: 'ws_piehands',
       name: 'Piehands Marketing Team',
-    }
+    },
   });
 
   console.log('✅ Workspace created:', workspace);
@@ -25,42 +25,42 @@ async function main() {
       properties: {
         name: '홍길동',
         email: 'hong@example.com',
-        level: 'VIP'
+        level: 'VIP',
       },
-      emailStatus: 'active' as const
+      emailStatus: 'active' as const,
     },
     {
-      workspaceId: 'ws_piehands', 
+      workspaceId: 'ws_piehands',
       distinctId: 'user_002',
       properties: {
         name: '김철수',
         email: 'kim@example.com',
-        level: 'Premium'
+        level: 'Premium',
       },
-      emailStatus: 'active' as const
+      emailStatus: 'active' as const,
     },
     {
       workspaceId: 'ws_piehands',
-      distinctId: 'user_003', 
+      distinctId: 'user_003',
       properties: {
         name: '이영희',
         email: 'lee@example.com',
-        level: 'Basic'
+        level: 'Basic',
       },
-      emailStatus: 'active' as const
-    }
+      emailStatus: 'active' as const,
+    },
   ];
 
   for (const userData of testUsers) {
     await prisma.user.upsert({
-      where: { 
-        workspaceId_distinctId: { 
-          workspaceId: userData.workspaceId, 
-          distinctId: userData.distinctId 
-        }
+      where: {
+        workspaceId_distinctId: {
+          workspaceId: userData.workspaceId,
+          distinctId: userData.distinctId,
+        },
       },
       update: userData,
-      create: userData
+      create: userData,
     });
   }
 
@@ -78,10 +78,11 @@ async function main() {
       contentType: 'HTML',
       content: {
         subject: 'Welcome {{user.name}}!',
-        body_html: '<h1>Hello {{user.name}}!</h1><p>Welcome to our platform. Your level: {{user.level}}</p>'
+        body_html:
+          '<h1>Hello {{user.name}}!</h1><p>Welcome to our platform. Your level: {{user.level}}</p>',
       },
-      createdBy: 'admin'
-    }
+      createdBy: 'admin',
+    },
   });
 
   console.log('✅ Template created:', testTemplate);

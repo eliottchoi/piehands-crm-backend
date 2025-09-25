@@ -18,7 +18,13 @@ export interface CampaignJobConfig {
 
 export interface CampaignJobStatus {
   id: string;
-  status: 'pending' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
+  status:
+    | 'pending'
+    | 'running'
+    | 'paused'
+    | 'completed'
+    | 'failed'
+    | 'cancelled';
   totalUsers: number;
   processedUsers: number;
   successCount: number;
@@ -68,7 +74,9 @@ export class CampaignJobService {
       const users = await this.getUsersForCampaign(config);
 
       // 2. Warm-up 상태 확인
-      const warmupStatus = await this.warmupService.getWarmupStatus(config.workspaceId);
+      const warmupStatus = await this.warmupService.getWarmupStatus(
+        config.workspaceId,
+      );
 
       // 3. 오늘 발송 가능한 수량 계산
       const availableToday = warmupStatus.remainingToday;
@@ -95,24 +103,33 @@ export class CampaignJobService {
       if (usersToSendToday.length > 0) {
         await this.cloudTasksService.scheduleCampaignBatch(
           config.campaignId,
-          usersToSendToday.map(u => u.id),
+          usersToSendToday.map((u) => u.id),
           config.templateId,
           undefined, // 즉시 실행
-          config.workspaceId
+          config.workspaceId,
         );
 
-        this.logger.log(`Scheduled ${usersToSendToday.length} emails for immediate sending`);
+        this.logger.log(
+          `Scheduled ${usersToSendToday.length} emails for immediate sending`,
+        );
       }
 
       // 6. 남은 사용자들을 내일 이후로 스케줄링
       if (remainingUsers.length > 0) {
-        await this.scheduleRemainingUsers(config, remainingUsers, warmupStatus.currentDay + 1);
-        this.logger.log(`Scheduled ${remainingUsers.length} emails for future sending`);
+        await this.scheduleRemainingUsers(
+          config,
+          remainingUsers,
+          warmupStatus.currentDay + 1,
+        );
+        this.logger.log(
+          `Scheduled ${remainingUsers.length} emails for future sending`,
+        );
       }
 
-      this.logger.log(`Campaign job ${jobId} started: ${usersToSendToday.length} today, ${remainingUsers.length} scheduled`);
+      this.logger.log(
+        `Campaign job ${jobId} started: ${usersToSendToday.length} today, ${remainingUsers.length} scheduled`,
+      );
       return jobId;
-
     } catch (error) {
       this.logger.error(`Failed to start campaign job: ${error.message}`);
       throw error;
@@ -124,7 +141,7 @@ export class CampaignJobService {
     jobId: string,
     config: CampaignJobConfig,
     users: any[],
-    dailyLimit: number
+    dailyLimit: number,
   ) {
     const jobStatus = this.runningJobs.get(jobId);
     if (!jobStatus) return;
@@ -136,7 +153,7 @@ export class CampaignJobService {
 
       // 템플릿 로드
       const template = await this.prisma.template.findUnique({
-        where: { id: config.templateId }
+        where: { id: config.templateId },
       });
       if (!template) {
         throw new Error(`Template ${config.templateId} not found`);
@@ -156,7 +173,9 @@ export class CampaignJobService {
         // 작업 상태 확인 (일시정지/취소 체크)
         const currentStatus = this.runningJobs.get(jobId);
         if (!currentStatus || currentStatus.status !== 'running') {
-          this.logger.log(`Campaign job ${jobId} was ${currentStatus?.status || 'stopped'}`);
+          this.logger.log(
+            `Campaign job ${jobId} was ${currentStatus?.status || 'stopped'}`,
+          );
           return;
         }
 
@@ -165,7 +184,9 @@ export class CampaignJobService {
           jobStatus.dailyLimitReached = true;
           jobStatus.status = 'paused';
           await this.updateCampaignJobInDB(jobId, jobStatus);
-          this.logger.log(`Campaign job ${jobId} paused - daily limit reached (${dailyLimit})`);
+          this.logger.log(
+            `Campaign job ${jobId} paused - daily limit reached (${dailyLimit})`,
+          );
 
           // 다음날 자동 재시작 스케줄링
           await this.scheduleNextDayResume(jobId, config);
@@ -173,11 +194,12 @@ export class CampaignJobService {
         }
 
         const batch = remainingUsers.slice(i, i + BATCH_SIZE);
-        jobStatus.currentBatch = Math.floor(jobStatus.processedUsers / BATCH_SIZE) + 1;
+        jobStatus.currentBatch =
+          Math.floor(jobStatus.processedUsers / BATCH_SIZE) + 1;
 
         // 배치 처리
         const batchResults = await Promise.allSettled(
-          batch.map(user => this.sendEmailToUser(user, template, config))
+          batch.map((user) => this.sendEmailToUser(user, template, config)),
         );
 
         // 결과 집계
@@ -188,7 +210,9 @@ export class CampaignJobService {
             todaysSentCount++;
           } else {
             jobStatus.failureCount++;
-            this.logger.warn(`Email failed: ${result.status === 'rejected' ? result.reason : 'Unknown error'}`);
+            this.logger.warn(
+              `Email failed: ${result.status === 'rejected' ? result.reason : 'Unknown error'}`,
+            );
           }
         }
 
@@ -196,17 +220,22 @@ export class CampaignJobService {
 
         // 예상 완료 시간 계산
         const remaining = jobStatus.totalUsers - jobStatus.processedUsers;
-        const rate = jobStatus.processedUsers / (Date.now() - jobStatus.startedAt.getTime());
-        jobStatus.estimatedCompletion = new Date(Date.now() + (remaining / rate));
+        const rate =
+          jobStatus.processedUsers /
+          (Date.now() - jobStatus.startedAt.getTime());
+        jobStatus.estimatedCompletion = new Date(Date.now() + remaining / rate);
 
         // 진행 상황 저장 (5초마다 또는 배치 완료시)
-        if (jobStatus.currentBatch % 5 === 0 || jobStatus.processedUsers === jobStatus.totalUsers) {
+        if (
+          jobStatus.currentBatch % 5 === 0 ||
+          jobStatus.processedUsers === jobStatus.totalUsers
+        ) {
           await this.updateCampaignJobInDB(jobId, jobStatus);
         }
 
         // 다음 배치 전 대기 (Rate limiting)
         if (i + BATCH_SIZE < remainingUsers.length) {
-          await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+          await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
         }
       }
 
@@ -214,8 +243,9 @@ export class CampaignJobService {
       jobStatus.status = 'completed';
       await this.updateCampaignJobInDB(jobId, jobStatus);
 
-      this.logger.log(`Campaign job ${jobId} completed: ${jobStatus.successCount}/${jobStatus.totalUsers} sent`);
-
+      this.logger.log(
+        `Campaign job ${jobId} completed: ${jobStatus.successCount}/${jobStatus.totalUsers} sent`,
+      );
     } catch (error) {
       jobStatus.status = 'failed';
       await this.updateCampaignJobInDB(jobId, jobStatus);
@@ -224,15 +254,19 @@ export class CampaignJobService {
   }
 
   // 🎯 사용자에게 이메일 발송
-  private async sendEmailToUser(user: any, template: any, config: CampaignJobConfig) {
+  private async sendEmailToUser(
+    user: any,
+    template: any,
+    config: CampaignJobConfig,
+  ) {
     try {
       // 이미 발송된 이메일인지 확인 (중복 방지)
       const existingLog = await this.prisma.emailLog.findFirst({
         where: {
           userId: user.id,
           campaignId: config.campaignId,
-          status: { in: ['sent', 'delivered'] }
-        }
+          status: { in: ['sent', 'delivered'] },
+        },
       });
 
       if (existingLog) {
@@ -240,7 +274,10 @@ export class CampaignJobService {
       }
 
       // 사용자가 수신 거부했는지 확인
-      if (user.emailStatus === 'unsubscribed' || user.emailStatus === 'bounced') {
+      if (
+        user.emailStatus === 'unsubscribed' ||
+        user.emailStatus === 'bounced'
+      ) {
         return { success: false, skipped: true, reason: user.emailStatus };
       }
 
@@ -253,11 +290,11 @@ export class CampaignJobService {
           name: userProperties.name || 'User',
           email: userProperties.email || '',
           ...userProperties,
-        }
+        },
       };
 
       // 간단한 변수 치환 (실제로는 Liquid 엔진 사용)
-      const templateContent = template.content as any;
+      const templateContent = template.content;
       const rendered = {
         subject: templateContent.subject || 'No Subject',
         html: templateContent.body || '<p>No Content</p>',
@@ -275,9 +312,10 @@ export class CampaignJobService {
       });
 
       return { success: result.success, messageId: result.messageId };
-
     } catch (error) {
-      this.logger.error(`Failed to send email to user ${user.id}: ${error.message}`);
+      this.logger.error(
+        `Failed to send email to user ${user.id}: ${error.message}`,
+      );
       return { success: false, error: error.message };
     }
   }
@@ -313,16 +351,27 @@ export class CampaignJobService {
       let dailyLimit = config.maxEmailsPerDay;
       if (config.enableWarmup) {
         const warmupStatus = await this.getWarmupStatus(config.workspaceId);
-        const warmupSchedule = this.WARMUP_SCHEDULE.find(s => s.day >= warmupStatus.currentDay);
-        dailyLimit = Math.min(dailyLimit || Number.MAX_SAFE_INTEGER, warmupSchedule?.maxEmails || 25000);
+        const warmupSchedule = this.WARMUP_SCHEDULE.find(
+          (s) => s.day >= warmupStatus.currentDay,
+        );
+        dailyLimit = Math.min(
+          dailyLimit || Number.MAX_SAFE_INTEGER,
+          warmupSchedule?.maxEmails || 25000,
+        );
       }
 
-      this.executeCampaignJob(jobId, config, users, dailyLimit).catch(error => {
-        this.logger.error(`Campaign job ${jobId} failed on resume: ${error.message}`);
-        this.updateJobStatus(jobId, { status: 'failed' });
-      });
+      this.executeCampaignJob(jobId, config, users, dailyLimit).catch(
+        (error) => {
+          this.logger.error(
+            `Campaign job ${jobId} failed on resume: ${error.message}`,
+          );
+          this.updateJobStatus(jobId, { status: 'failed' });
+        },
+      );
 
-      this.logger.log(`Campaign job ${jobId} resumed from ${jobStatus.processedUsers}/${jobStatus.totalUsers}`);
+      this.logger.log(
+        `Campaign job ${jobId} resumed from ${jobStatus.processedUsers}/${jobStatus.totalUsers}`,
+      );
       return true;
     }
 
@@ -354,14 +403,16 @@ export class CampaignJobService {
   }
 
   // 🎯 워크스페이스의 모든 작업 조회
-  async getWorkspaceCampaignJobs(workspaceId: string): Promise<CampaignJobStatus[]> {
+  async getWorkspaceCampaignJobs(
+    workspaceId: string,
+  ): Promise<CampaignJobStatus[]> {
     const jobs = await this.prisma.campaignJob.findMany({
       where: { workspaceId },
       orderBy: { createdAt: 'desc' },
-      take: 50
+      take: 50,
     });
 
-    return jobs.map(job => ({
+    return jobs.map((job) => ({
       id: job.id,
       status: job.status as any,
       totalUsers: job.totalUsers,
@@ -379,12 +430,14 @@ export class CampaignJobService {
 
   // 🎯 IP Warm-up 상태 조회
   private async getWarmupStatus(workspaceId: string) {
-    const settings = await this.settingsService.getSendGridSettings(workspaceId);
+    const settings =
+      await this.settingsService.getSendGridSettings(workspaceId);
     const warmupStartDate = settings.warmup_start_date || new Date();
 
-    const daysSinceStart = Math.floor(
-      (Date.now() - warmupStartDate.getTime()) / (1000 * 60 * 60 * 24)
-    ) + 1;
+    const daysSinceStart =
+      Math.floor(
+        (Date.now() - warmupStartDate.getTime()) / (1000 * 60 * 60 * 24),
+      ) + 1;
 
     return {
       currentDay: Math.min(daysSinceStart, 10),
@@ -408,8 +461,8 @@ export class CampaignJobService {
         sentAt: {
           gte: today,
           lt: tomorrow,
-        }
-      }
+        },
+      },
     });
 
     return count;
@@ -432,7 +485,7 @@ export class CampaignJobService {
         distinctId: true,
         properties: true,
         emailStatus: true,
-      }
+      },
     });
   }
 
@@ -440,14 +493,19 @@ export class CampaignJobService {
   private async scheduleRemainingUsers(
     config: CampaignJobConfig,
     remainingUsers: any[],
-    startDay: number
+    startDay: number,
   ): Promise<void> {
     let currentDay = startDay;
     let processedUsers = 0;
 
     while (processedUsers < remainingUsers.length && currentDay <= 10) {
-      const warmupLimit = this.WARMUP_SCHEDULE.find(s => s.day >= currentDay)?.maxEmails || 25000;
-      const usersForDay = remainingUsers.slice(processedUsers, processedUsers + warmupLimit);
+      const warmupLimit =
+        this.WARMUP_SCHEDULE.find((s) => s.day >= currentDay)?.maxEmails ||
+        25000;
+      const usersForDay = remainingUsers.slice(
+        processedUsers,
+        processedUsers + warmupLimit,
+      );
 
       if (usersForDay.length === 0) break;
 
@@ -459,13 +517,15 @@ export class CampaignJobService {
       // Cloud Tasks에 스케줄링
       await this.cloudTasksService.scheduleCampaignBatch(
         config.campaignId,
-        usersForDay.map(u => u.id),
+        usersForDay.map((u) => u.id),
         config.templateId,
         scheduleDate,
-        config.workspaceId
+        config.workspaceId,
       );
 
-      this.logger.log(`Scheduled ${usersForDay.length} emails for day ${currentDay} (${scheduleDate.toISOString()})`);
+      this.logger.log(
+        `Scheduled ${usersForDay.length} emails for day ${currentDay} (${scheduleDate.toISOString()})`,
+      );
 
       processedUsers += usersForDay.length;
       currentDay++;
@@ -480,28 +540,39 @@ export class CampaignJobService {
 
       await this.cloudTasksService.scheduleCampaignBatch(
         config.campaignId,
-        finalUsers.map(u => u.id),
+        finalUsers.map((u) => u.id),
         config.templateId,
         scheduleDate,
-        config.workspaceId
+        config.workspaceId,
       );
 
-      this.logger.log(`Scheduled final ${finalUsers.length} emails for post-warmup (${scheduleDate.toISOString()})`);
+      this.logger.log(
+        `Scheduled final ${finalUsers.length} emails for post-warmup (${scheduleDate.toISOString()})`,
+      );
     }
   }
 
   // 🎯 다음날 자동 재시작 스케줄링 (레거시 - Cloud Tasks로 대체됨)
-  private async scheduleNextDayResume(jobId: string, config: CampaignJobConfig) {
+  private async scheduleNextDayResume(
+    jobId: string,
+    config: CampaignJobConfig,
+  ) {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(9, 0, 0, 0); // 오전 9시에 재시작
 
-    this.logger.log(`Campaign job ${jobId} scheduled to resume at ${tomorrow.toISOString()}`);
+    this.logger.log(
+      `Campaign job ${jobId} scheduled to resume at ${tomorrow.toISOString()}`,
+    );
     // Cloud Tasks로 대체되어 setTimeout 제거
   }
 
   // Helper methods for DB operations
-  private async saveCampaignJobStatus(jobId: string, status: CampaignJobStatus, config: CampaignJobConfig) {
+  private async saveCampaignJobStatus(
+    jobId: string,
+    status: CampaignJobStatus,
+    config: CampaignJobConfig,
+  ) {
     await this.prisma.campaignJob.create({
       data: {
         id: jobId,
@@ -517,11 +588,14 @@ export class CampaignJobService {
         warmupDay: status.warmupDay,
         dailyLimitReached: status.dailyLimitReached,
         config: config as any,
-      }
+      },
     });
   }
 
-  private async updateCampaignJobInDB(jobId: string, status: CampaignJobStatus) {
+  private async updateCampaignJobInDB(
+    jobId: string,
+    status: CampaignJobStatus,
+  ) {
     await this.prisma.campaignJob.update({
       where: { id: jobId },
       data: {
@@ -534,13 +608,13 @@ export class CampaignJobService {
         lastProcessedAt: status.lastProcessedAt,
         estimatedCompletion: status.estimatedCompletion,
         dailyLimitReached: status.dailyLimitReached,
-      }
+      },
     });
   }
 
   private async loadCampaignJobFromDB(jobId: string) {
     return await this.prisma.campaignJob.findUnique({
-      where: { id: jobId }
+      where: { id: jobId },
     });
   }
 

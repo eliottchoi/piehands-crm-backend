@@ -10,9 +10,15 @@ import { SettingsModule } from '../settings/settings.module';
 import { TasksModule } from '../tasks/tasks.module';
 
 @Module({
-  imports: [PrismaModule, SendGridModule, TemplatesModule, SettingsModule, forwardRef(() => TasksModule)],
+  imports: [
+    PrismaModule,
+    SendGridModule,
+    TemplatesModule,
+    SettingsModule,
+    forwardRef(() => TasksModule),
+  ],
   controllers: [CampaignsController, CampaignJobController],
   providers: [CampaignsService, CampaignJobService],
-  exports: [CampaignsService, CampaignJobService]
+  exports: [CampaignsService, CampaignJobService],
 })
 export class CampaignsModule {}
