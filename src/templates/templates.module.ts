@@ -3,7 +3,6 @@ import { TemplatesController } from './templates.controller';
 import { TemplatesService } from './templates.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { SettingsModule } from '../settings/settings.module';
-import { TasksModule } from '../tasks/tasks.module';
 import { AuthModule } from '../auth/auth.module';
 import { SendGridModule } from '../sendgrid/sendgrid.module';
 
@@ -13,7 +12,6 @@ import { SendGridModule } from '../sendgrid/sendgrid.module';
     PrismaModule,
     SendGridModule,
     SettingsModule,
-    TasksModule,
   ],
   controllers: [TemplatesController],
   providers: [TemplatesService],
