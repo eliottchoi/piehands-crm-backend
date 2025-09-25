@@ -6,6 +6,9 @@ import { Campaign } from '@prisma/client';
 import { SendGridService } from '../sendgrid/sendgrid.service';
 import { TemplatesService } from '../templates/templates.service';
 import { CampaignJobService } from './campaign-job.service';
+import { REQUEST } from '@nestjs/core';
+
+const TEST_WORKSPACE_ID = 'ws_test_12345';
 
 const mockPrismaService = {
   campaign: {
@@ -41,6 +44,7 @@ describe('CampaignsService', () => {
         { provide: SendGridService, useValue: mockSendGridService },
         { provide: TemplatesService, useValue: mockTemplatesService },
         { provide: CampaignJobService, useValue: mockCampaignJobService },
+        { provide: REQUEST, useValue: {} },
       ],
     }).compile();
 
@@ -55,7 +59,7 @@ describe('CampaignsService', () => {
   describe('create', () => {
     it('should create a new campaign with DRAFT status', async () => {
       const createCampaignDto: CreateCampaignDto = {
-        workspaceId: 'ws_test',
+        workspaceId: TEST_WORKSPACE_ID,
         name: 'Test Campaign',
         createdBy: 'test-user',
       };
@@ -73,11 +77,15 @@ describe('CampaignsService', () => {
 
       mockPrismaService.campaign.create.mockResolvedValue(expectedCampaign);
 
-      const result = await service.create(createCampaignDto);
+      const result = await service.create(
+        createCampaignDto,
+        createCampaignDto.workspaceId,
+      );
 
       expect(mockPrismaService.campaign.create).toHaveBeenCalledWith({
         data: {
           ...createCampaignDto,
+          workspaceId: createCampaignDto.workspaceId,
           status: 'DRAFT',
         },
       });
@@ -95,7 +103,7 @@ describe('CampaignsService', () => {
 
       const expectedCampaign = {
         id: campaignId,
-        workspaceId: 'ws_test',
+        workspaceId: TEST_WORKSPACE_ID,
         name: 'Updated Campaign Name',
         status: 'DRAFT',
         createdBy: 'test-user',
@@ -121,7 +129,7 @@ describe('CampaignsService', () => {
   describe('activate', () => {
     it('should find all active users and start the campaign for them if trigger is IMMEDIATE', async () => {
       const campaignId = 'campaign-to-activate';
-      const workspaceId = 'ws_test';
+      const workspaceId = TEST_WORKSPACE_ID;
       const mockCampaign = {
         id: campaignId,
         workspaceId,
