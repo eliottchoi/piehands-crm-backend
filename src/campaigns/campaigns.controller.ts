@@ -7,6 +7,7 @@ import {
   Patch,
   Param,
   Get,
+  Req,
 } from '@nestjs/common';
 import { CampaignsService } from './campaigns.service';
 import { SendCampaignDto } from './dto/send-campaign.dto';
@@ -33,8 +34,12 @@ export class CampaignsController {
   }
 
   @Post()
-  create(@Body() createCampaignDto: CreateCampaignDto) {
-    return this.campaignsService.create(createCampaignDto);
+  create(
+    @Body() createCampaignDto: CreateCampaignDto,
+    @Req() req: any,
+  ) {
+    const workspaceId = req.user.workspaceId;
+    return this.campaignsService.create(createCampaignDto, workspaceId);
   }
 
   @Patch(':id')

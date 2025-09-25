@@ -14,6 +14,8 @@ import { TemplatesService } from '../templates/templates.service';
 import { SendGridService } from '../sendgrid/sendgrid.service';
 import { Liquid } from 'liquidjs';
 import { CampaignJobService } from './campaign-job.service';
+import { REQUEST } from '@nestjs/core';
+import { Request } from 'express';
 
 @Injectable()
 export class CampaignsService {
@@ -26,6 +28,7 @@ export class CampaignsService {
     private templatesService: TemplatesService,
     @Inject(forwardRef(() => CampaignJobService))
     private campaignJobService: CampaignJobService,
+    @Inject(REQUEST) private readonly request: Request,
   ) {}
 
   // 🎯 이메일 노드의 타겟 설정에 따라 사용자 목록 조회
@@ -104,10 +107,11 @@ export class CampaignsService {
     });
   }
 
-  create(createCampaignDto: CreateCampaignDto) {
+  create(createCampaignDto: CreateCampaignDto, workspaceId: string) {
     return this.prisma.campaign.create({
       data: {
         ...createCampaignDto,
+        workspaceId,
         status: 'DRAFT',
       },
     });
